@@ -1,7 +1,6 @@
 package com.aleksos.launcher
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -116,28 +115,29 @@ object Updater {
             append("Доступна новая сборка ${release.build} (у вас $current).")
             if (release.notes.isNotBlank()) append("\n\n").append(release.notes.take(800))
         }
-        AlertDialog.Builder(activity)
-            .setTitle("Обновление AleksOS")
-            .setMessage(message)
-            .setPositiveButton("Обновить") { _, _ -> startInstall(activity, release) }
-            .setNegativeButton("Позже", null)
-            .setNeutralButton("Пропустить") { _, _ ->
+        AosDialog(activity)
+            .title("Обновление AleksOS")
+            .message(message)
+            .button("Пропустить") {
                 activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .edit().putInt(KEY_SKIPPED_BUILD, release.build).apply()
             }
+            .button("Позже")
+            .button("Обновить", primary = true) { startInstall(activity, release) }
             .show()
     }
 
     private fun startInstall(activity: Activity, release: Release) {
         // Android требует разрешить лаунчеру устанавливать приложения (один раз).
         if (!activity.packageManager.canRequestPackageInstalls()) {
-            AlertDialog.Builder(activity)
-                .setTitle("Нужно разрешение")
-                .setMessage(
+            AosDialog(activity)
+                .title("Нужно разрешение")
+                .message(
                     "Чтобы AleksOS мог обновлять себя, включите «Разрешить установку из этого источника» " +
                         "на следующем экране, вернитесь назад и снова нажмите «Обновить»."
                 )
-                .setPositiveButton("Открыть настройки") { _, _ ->
+                .button("Отмена")
+                .button("Открыть настройки", primary = true) {
                     activity.startActivity(
                         Intent(
                             Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -145,24 +145,21 @@ object Updater {
                         )
                     )
                 }
-                .setNegativeButton("Отмена", null)
                 .show()
             return
         }
 
-        @Suppress("DEPRECATION")
-        val progress = android.app.ProgressDialog(activity).apply {
-            setTitle("Скачиваю сборку ${release.build}")
-            setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL)
-            max = 100
-            setCancelable(false)
-            show()
-        }
+        val bar = AosDialog.progressBar(activity)
+        val progress = AosDialog(activity)
+            .title("Скачиваю сборку ${release.build}")
+            .view(bar)
+            .cancelable(false)
+            .show()
         val app = activity.applicationContext
         thread(name = "update-download") {
             val result = runCatching {
                 val file = File(app.cacheDir, "update.apk")
-                download(release.apkUrl, file) { percent -> main.post { progress.progress = percent } }
+                download(release.apkUrl, file) { percent -> main.post { bar.progress = percent } }
                 install(app, file)
             }
             main.post {

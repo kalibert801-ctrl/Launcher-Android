@@ -1,6 +1,5 @@
 package com.aleksos.launcher
 
-import android.app.AlertDialog
 import android.content.Context
 
 /**
@@ -17,14 +16,14 @@ object WindowsEngine {
 
     fun launch(context: Context, app: WindowsApp) {
         if (!isAvailable) {
-            AlertDialog.Builder(context)
-                .setTitle(app.name)
-                .setMessage(
+            AosDialog(context)
+                .title(app.name)
+                .message(
                     "Движок Windows (Wine + Box64) ещё не подключён.\n\n" +
                         "Программа добавлена на рабочий стол и запустится, " +
                         "когда движок появится в следующих версиях AleksOS."
                 )
-                .setPositiveButton("OK", null)
+                .button("OK", primary = true)
                 .show()
             return
         }

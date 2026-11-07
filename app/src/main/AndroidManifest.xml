@@ -7,6 +7,13 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- Чтобы найти «Телефон» и «Камеру» для рабочего стола по умолчанию -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
+        </intent>
     </queries>
 
     <!-- Для проверки и скачивания обновлений с GitHub -->
