@@ -11,8 +11,11 @@ android {
         applicationId = "com.aleksos.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Номер сборки GitHub Actions (build-N) = versionCode. По нему лаунчер
+        // понимает, что на GitHub есть версия новее. Локальная сборка получает 1.
+        val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = buildNumber
+        versionName = "0.2.$buildNumber"
     }
 
     // Фиксированный ключ подписи: каждая новая сборка ставится поверх старой

@@ -63,6 +63,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         reload()
+        Updater.autoCheck(this)
     }
 
     override fun onDestroy() {
@@ -100,10 +101,27 @@ class MainActivity : Activity() {
                 override fun afterTextChanged(s: Editable?) = applyFilter()
             })
         }
+        // Строка поиска + кнопка меню «⋮» справа.
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        topBar.addView(search, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        topBar.addView(
+            TextView(this).apply {
+                text = "⋮"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                setPadding(dp(12), dp(4), dp(4), dp(4))
+                setOnClickListener { showMenu() }
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
         root.addView(
-            search,
+            topBar,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(dp(16), dp(12), dp(16), dp(8))
+                setMargins(dp(16), dp(12), dp(12), dp(8))
             }
         )
 
@@ -137,6 +155,18 @@ class MainActivity : Activity() {
             insets
         }
         return root
+    }
+
+    private fun showMenu() {
+        AlertDialog.Builder(this)
+            .setTitle("AleksOS ${Updater.currentVersionName(this)} (сборка ${Updater.currentBuild(this)})")
+            .setItems(arrayOf("Проверить обновления", "Настройки телефона")) { _, which ->
+                when (which) {
+                    0 -> Updater.manualCheck(this)
+                    1 -> startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            }
+            .show()
     }
 
     // ---------- Загрузка списка ----------
