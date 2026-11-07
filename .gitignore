@@ -33,3 +33,6 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Фиксированный отладочный ключ подписи (не секретный)
+!app/debug-signing.keystore

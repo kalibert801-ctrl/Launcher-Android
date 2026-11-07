@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Иконка лаунчера: тёмный круг с окном и буквой-стрелкой -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF1E3A8A"
+        android:pathData="M54,4 A50,50 0 1,1 53.99,4 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M28,32 L80,32 L80,76 L28,76 Z" />
+    <path
+        android:fillColor="#FF3B82F6"
+        android:pathData="M28,32 L80,32 L80,42 L28,42 Z" />
+    <path
+        android:fillColor="#FF1E3A8A"
+        android:pathData="M36,50 L52,50 L52,68 L36,68 Z" />
+    <path
+        android:fillColor="#FF22C55E"
+        android:pathData="M58,50 L72,50 L72,68 L58,68 Z" />
+</vector>
