@@ -345,11 +345,11 @@ class MainActivity : Activity() {
                 }
                 val byComponent = androidItems.associateBy { it.component }
 
-                // Рабочий стол: закреплённые приложения, Windows-программы, плитка «Добавить .exe».
+                // Рабочий стол: закреплённые приложения и Windows-программы.
+                // Добавить программу можно через меню рабочего стола или «Пуск».
                 val onDesktop = ArrayList<Item>()
                 pinnedDesktop.mapNotNullTo(onDesktop) { byComponent[it] }
                 onDesktop += windowsItems
-                onDesktop += Item(Kind.ADD_WINDOWS, "Добавить .exe", TileIconDrawable.addTile())
                 desktopItems = onDesktop.associateBy { it.key }
                 desktop.setEntries(onDesktop.map { it.key to makeCell(it, darkText = false) })
 
