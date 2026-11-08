@@ -29,6 +29,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import java.io.File
 import java.util.concurrent.Executors
 
 /**
@@ -38,7 +39,7 @@ import java.util.concurrent.Executors
  */
 class MainActivity : Activity() {
 
-    private enum class Kind { ANDROID, WINDOWS, ADD_WINDOWS }
+    private enum class Kind { ANDROID, WINDOWS, ADD_WINDOWS, COMPUTER, FILE }
 
     private class Item(
         val kind: Kind,
@@ -46,12 +47,15 @@ class MainActivity : Activity() {
         val icon: Drawable,
         val component: ComponentName? = null,
         val windowsApp: WindowsApp? = null,
+        val file: File? = null,
     ) {
         /** Стабильный ключ для запоминания места на рабочем столе. */
         val key: String = when (kind) {
             Kind.ANDROID -> "a:" + component!!.flattenToString()
             Kind.WINDOWS -> "w:" + windowsApp!!.id
             Kind.ADD_WINDOWS -> "add"
+            Kind.COMPUTER -> "pc"
+            Kind.FILE -> "f:" + file!!.name
         }
     }
 
@@ -316,17 +320,23 @@ class MainActivity : Activity() {
 
     /** Меню по долгому нажатию на пустое место рабочего стола. */
     private fun showDesktopMenu() {
+        val actions = ArrayList<Pair<String, () -> Unit>>()
+        actions += "Создать папку" to { withFileAccess { FileMenu.createFolder(this, FileOps.desktopDir) { reload() } } }
+        if (FileOps.clipboard != null) actions += "Вставить" to { withFileAccess { FileMenu.paste(this, FileOps.desktopDir) { reload() } } }
+        actions += "Обновить" to { reload() }
+        actions += "Добавить Windows-программу" to { pickWindowsProgram() }
+        actions += "Открыть «Этот телефон»" to { ExplorerActivity.open(this) }
+        actions += "Сменить обои" to { safeStart(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Обои")) }
+        actions += "Параметры экрана" to { safeStart(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }
         AosDialog(this)
             .title("Рабочий стол")
-            .items(listOf("Обновить", "Добавить Windows-программу", "Сменить обои", "Параметры экрана")) { which ->
-                when (which) {
-                    0 -> reload()
-                    1 -> pickWindowsProgram()
-                    2 -> safeStart(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Обои"))
-                    3 -> safeStart(Intent(Settings.ACTION_DISPLAY_SETTINGS))
-                }
-            }
+            .items(actions.map { it.first }) { actions[it].second() }
             .show()
+    }
+
+    /** Выполнить действие с файлами, а если доступа нет — попросить его. */
+    private fun withFileAccess(action: () -> Unit) {
+        if (FileOps.hasAccess(this)) action() else FileOps.requestAccess(this)
     }
 
     // ---------- Загрузка списков ----------
@@ -338,6 +348,14 @@ class MainActivity : Activity() {
             val androidItems = loadAndroidApps()
             val pinnedDesktop = desktopPins.load()
             val pinnedTaskbar = taskbarPins.load()
+            // Файлы и папки из папки «Desktop» в памяти телефона
+            val desktopFiles = if (FileOps.hasAccess(this)) {
+                FileOps.desktopDir.mkdirs()
+                FileOps.desktopDir.listFiles()
+                    ?.filter { !it.name.startsWith(".") }
+                    ?.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase() }))
+                    ?: emptyList()
+            } else emptyList()
             runOnUiThread {
                 if (isDestroyed || generation != loadGeneration) return@runOnUiThread
                 val windowsItems = windowsApps.sortedBy { it.name.lowercase() }.map {
@@ -348,13 +366,23 @@ class MainActivity : Activity() {
                 // Рабочий стол: закреплённые приложения и Windows-программы.
                 // Добавить программу можно через меню рабочего стола или «Пуск».
                 val onDesktop = ArrayList<Item>()
+                onDesktop += Item(Kind.COMPUTER, "Этот телефон", FileIconDrawable.phone())
                 pinnedDesktop.mapNotNullTo(onDesktop) { byComponent[it] }
                 onDesktop += windowsItems
+                desktopFiles.mapTo(onDesktop) {
+                    Item(Kind.FILE, it.name, FileIconDrawable.forEntry(it), file = it)
+                }
                 desktopItems = onDesktop.associateBy { it.key }
                 desktop.setEntries(onDesktop.map { it.key to makeCell(it, darkText = false) })
 
                 // Панель задач
                 taskbarApps.removeAllViews()
+                if (ExplorerActivity.isOpen) {
+                    // открытое (или свёрнутое) окно «Этот телефон» — как значок программы на панели задач
+                    taskbarApps.addView(taskbarButton(FileIconDrawable.phone(), dp(30)) { ExplorerActivity.open(this) }.apply {
+                        foreground = Ui.rounded(0, dp(10).toFloat(), Ui.ACCENT_TEXT, dp(2))
+                    })
+                }
                 pinnedTaskbar.mapNotNull { byComponent[it] }.forEach { item ->
                     taskbarApps.addView(taskbarButton(item.icon, dp(30)) { onItemClick(item) }.apply {
                         setOnLongClickListener { onItemLongClick(item); true }
@@ -416,6 +444,20 @@ class MainActivity : Activity() {
             }
             Kind.WINDOWS -> item.windowsApp?.let { WindowsEngine.launch(this, it) }
             Kind.ADD_WINDOWS -> pickWindowsProgram()
+            Kind.COMPUTER -> ExplorerActivity.open(this)
+            Kind.FILE -> item.file?.let { openFile(it) }
+        }
+    }
+
+    private fun openFile(file: File) {
+        if (file.isDirectory) {
+            ExplorerActivity.open(this, file)
+            return
+        }
+        try {
+            FileOps.open(this, file)
+        } catch (_: Exception) {
+            toast("Нет приложения, чтобы открыть этот файл")
         }
     }
 
@@ -465,6 +507,14 @@ class MainActivity : Activity() {
                     .show()
             }
             Kind.ADD_WINDOWS -> pickWindowsProgram()
+            Kind.COMPUTER -> AosDialog(this)
+                .title("Этот телефон")
+                .items(listOf("Открыть", "Свойства")) { which ->
+                    if (which == 0) ExplorerActivity.open(this)
+                    else safeStart(Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
+                }
+                .show()
+            Kind.FILE -> item.file?.let { FileMenu.show(this, it, ::openFile) { reload() } }
         }
     }
 
