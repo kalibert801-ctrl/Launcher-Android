@@ -72,7 +72,7 @@
             android:taskAffinity="com.aleksos.launcher.wine"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustNothing" />
 
         <!-- Отдаёт файлы другим приложениям при «Открыть» / «Отправить» -->
         <provider

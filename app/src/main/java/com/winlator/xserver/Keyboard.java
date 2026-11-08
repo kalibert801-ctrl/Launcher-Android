@@ -12,7 +12,7 @@ public class Keyboard {
     public static final short KEYS_COUNT = 248;
     public static final short MAX_KEYCODE = 255;
     public static final short MIN_KEYCODE = 8;
-    public final int[] keysyms = new int[KEYS_COUNT];
+    public final int[] keysyms = new int[KEYS_COUNT * KEYSYMS_PER_KEYCODE]; // AleksOS: все коды 8..255
     private final Bitmask modifiersMask = new Bitmask();
     private final XKeycode[] keycodeMap = createKeycodeMap();
     private final ArraySet<Byte> pressedKeys = new ArraySet<>();
@@ -34,13 +34,13 @@ public class Keyboard {
     }
 
     public void setKeysyms(byte keycode, int minKeysym, int majKeysym) {
-        int index = keycode - 8;
+        int index = (keycode & 0xFF) - 8;
         keysyms[index*KEYSYMS_PER_KEYCODE+0] = minKeysym;
         keysyms[index*KEYSYMS_PER_KEYCODE+1] = majKeysym;
     }
 
     public boolean hasKeysym(byte keycode, int keysym) {
-        int index = keycode - 8;
+        int index = (keycode & 0xFF) - 8;
         return keysyms[index*KEYSYMS_PER_KEYCODE+0] == keysym || keysyms[index*KEYSYMS_PER_KEYCODE+1] == keysym;
     }
 
@@ -221,8 +221,36 @@ public class Keyboard {
         return keycodeMap;
     }
 
+    /**
+     * AleksOS: русские буквы. Каждой букве — своя «клавиша» с юникодными keysym
+     * (0x01000000 + код символа): Wine превращает такие keysym прямо в символ (ToUnicodeEx),
+     * поэтому раскладку Wine переключать не нужно.
+     * Wine может выдать таким клавишам только ~31 свободный виртуальный код, поэтому
+     * 30 частых букв закреплены (коды 141..170, по убыванию частоты), а редкие (ф, ъ, ё)
+     * подставляются в одну «плавающую» клавишу 140 с уведомлением MappingNotify.
+     */
+    public static final String CYRILLIC_STATIC = "оеаинтсрвлкмдпуяыьгзбчйхжшюцщэ";
+    public static final int CYRILLIC_DYNAMIC_KEYCODE = 140;
+    public static final int CYRILLIC_FIRST_KEYCODE = 141;
+
+    /** Код закреплённой клавиши для русской буквы (любого регистра) или -1. */
+    public static int cyrillicKeycode(char ch) {
+        int i = CYRILLIC_STATIC.indexOf(Character.toLowerCase(ch));
+        return i < 0 ? -1 : CYRILLIC_FIRST_KEYCODE + i;
+    }
+
+    public static boolean isCyrillic(char ch) {
+        char c = Character.toLowerCase(ch);
+        return (c >= 'а' && c <= 'я') || c == 'ё';
+    }
+
     public static Keyboard createKeyboard(XServer xServer) {
         Keyboard keyboard = new Keyboard(xServer);
+        for (int i = 0; i < CYRILLIC_STATIC.length(); i++) {
+            char lower = CYRILLIC_STATIC.charAt(i);
+            keyboard.setKeysyms((byte)(CYRILLIC_FIRST_KEYCODE + i), 0x01000000 | lower, 0x01000000 | Character.toUpperCase(lower));
+        }
+        keyboard.setKeysyms((byte)CYRILLIC_DYNAMIC_KEYCODE, 0x01000000 | 'ъ', 0x01000000 | 'Ъ');
         keyboard.setKeysyms(XKeycode.KEY_ESC.id, 65307, 0);
         keyboard.setKeysyms(XKeycode.KEY_ENTER.id, 65293, 0);
         keyboard.setKeysyms(XKeycode.KEY_RIGHT.id, 65363, 0);

@@ -40,3 +40,6 @@ google-services.json
 
 # Пароль ключа подписи (только на ПК владельца и в секретах GitHub)
 signing.properties
+
+# Русская локаль для движка — собирается на GitHub при сборке APK
+app/src/main/assets/locale/

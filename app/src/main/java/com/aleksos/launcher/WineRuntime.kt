@@ -52,7 +52,11 @@ object WineRuntime {
         all.takeLast(lines).joinToString("\n")
     }.getOrDefault("Журнал пуст")
 
-    /** Диски Windows: C: — системный (внутри движка), D: — папка AleksOS, Z: — весь Linux-корень. */
+    /**
+     * Диски Windows: C: — системный (внутри движка), D: — папка AleksOS, E: — вся память телефона,
+     * Z: — Linux-корень движка (нужен самому Wine). «Документы» и «Рабочий стол» Windows —
+     * это папки AleksOS, чтобы файлы из Windows-программ сразу были видны на телефоне.
+     */
     fun prepareDrives(context: Context) {
         val rootfs = EngineManager.rootfsDir(context)
         val dosdevices = File(rootfs, "home/xuser/.wine/dosdevices")
@@ -60,7 +64,16 @@ object WineRuntime {
         dosdevices.listFiles()?.forEach { if (it.name.matches(Regex("[a-z]:"))) it.delete() }
         link("../drive_c", File(dosdevices, "c:"))
         link(FileOps.aleksosDir.absolutePath, File(dosdevices, "d:"))
+        link(FileOps.storageRoot.absolutePath, File(dosdevices, "e:"))
         link("/", File(dosdevices, "z:"))
+
+        if (FileOps.aleksosDir.isDirectory) {
+            val profile = File(rootfs, "home/xuser/.wine/drive_c/users/xuser")
+            linkFolder(File(profile, "Documents"), FileOps.documentsDir)
+            linkFolder(File(profile, "Desktop"), FileOps.desktopDir)
+        }
+
+        installRussianLocale(context, rootfs)
 
         File(rootfs, "tmp").mkdirs()
         File(rootfs, "tmp").listFiles()?.forEach { FileOps.deleteRecursive(it) }
@@ -80,6 +93,48 @@ object WineRuntime {
         runCatching { linkFile.delete(); Os.symlink(target, linkFile.path) }
     }
 
+    private fun isLink(f: File) = runCatching { java.nio.file.Files.isSymbolicLink(f.toPath()) }.getOrDefault(false)
+
+    /** Папку профиля Windows заменить ссылкой на папку AleksOS (только если она пустая). */
+    private fun linkFolder(winDir: File, target: File) {
+        target.mkdirs()
+        if (isLink(winDir)) {
+            if (runCatching { Os.readlink(winDir.path) }.getOrNull() == target.absolutePath) return
+            winDir.delete()
+        } else if (winDir.isDirectory) {
+            if (!winDir.list().isNullOrEmpty()) return   // там уже что-то есть — не трогаем
+            winDir.delete()
+        }
+        winDir.parentFile?.mkdirs()
+        link(target.absolutePath, winDir)
+    }
+
+    /** Русская локаль Linux (собирается на GitHub и лежит в APK) — для русского языка Wine. */
+    private const val RU_LOCALE = "ru_RU.utf8"
+
+    private fun installRussianLocale(context: Context, rootfs: File) {
+        val dst = File(rootfs, "usr/lib/locale/$RU_LOCALE")
+        if (File(dst, "LC_CTYPE").isFile) return
+        val assets = context.assets
+        val files = runCatching { assets.list("locale/$RU_LOCALE") }.getOrNull() ?: return
+        if (files.isEmpty()) return
+        fun copy(assetPath: String, out: File) {
+            val children = assets.list(assetPath).orEmpty()
+            if (children.isNotEmpty()) {
+                out.mkdirs()
+                children.forEach { copy("$assetPath/$it", File(out, it)) }
+            } else {
+                out.parentFile?.mkdirs()
+                assets.open(assetPath).use { input -> out.outputStream().use { input.copyTo(it) } }
+            }
+        }
+        runCatching { copy("locale/$RU_LOCALE", dst) }
+            .onFailure { writeLog("Не удалось установить русскую локаль: $it") }
+    }
+
+    fun hasRussianLocale(context: Context) =
+        File(EngineManager.rootfsDir(context), "usr/lib/locale/$RU_LOCALE/LC_CTYPE").isFile
+
     private fun copyIfMissing(src: File, dst: File) {
         if (!dst.exists() && src.isFile) runCatching { src.copyTo(dst) }
     }
@@ -89,6 +144,10 @@ object WineRuntime {
         val env = EnvVars()
         env.put("WINEPREFIX", WINEPREFIX)
         env.put("WINEDEBUG", "fixme-all")
+        // Русский язык и кодировка Windows-1251 (если русская локаль установлена)
+        val locale = if (hasRussianLocale(context)) RU_LOCALE else "en_US.utf8"
+        env.put("LC_ALL", locale)
+        env.put("LANG", locale)
         env.put("WINEESYNC", "1")
         env.put("MESA_DEBUG", "silent")
         env.put("MESA_NO_ERROR", "1")
@@ -141,12 +200,14 @@ object WineRuntime {
     fun toWindowsPath(file: File): String {
         val path = file.absolutePath
         val aleksos = FileOps.aleksosDir.absolutePath
-        val win = if (path == aleksos || path.startsWith("$aleksos/")) {
-            "D:" + path.removePrefix(aleksos).replace('/', '\\')
-        } else {
-            "Z:" + path.replace('/', '\\')
+        val storage = FileOps.storageRoot.absolutePath
+        fun under(root: String) = path == root || path.startsWith("$root/")
+        val (drive, rest) = when {
+            under(aleksos) -> "D:" to path.removePrefix(aleksos)
+            under(storage) -> "E:" to path.removePrefix(storage)
+            else -> "Z:" to path
         }
-        return win
+        return drive + rest.replace('/', '\\').ifEmpty { "\\" }
     }
 
     fun escape(arg: String) = arg.replace(" ", "\\ ")

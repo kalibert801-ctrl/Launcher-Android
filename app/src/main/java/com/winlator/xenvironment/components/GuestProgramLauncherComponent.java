@@ -19,12 +19,13 @@ import java.io.File;
  */
 public class GuestProgramLauncherComponent extends EnvironmentComponent {
     private String guestExecutable;
-    private static int pid = -1;
+    private int pid = -1; // AleksOS: у каждого запуска свой процесс (можно несколько программ)
     private String[] bindingPaths;
     private EnvVars envVars;
     private EnvVars box64EnvVars;
     private Callback<Integer> terminationCallback;
-    private static final Object lock = new Object();
+    private final Object lock = new Object();
+    private String cwd = ImageFs.HOME_PATH;
 
     @Override
     public void start() {
@@ -62,6 +63,11 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
 
     public void setTerminationCallback(Callback<Integer> terminationCallback) {
         this.terminationCallback = terminationCallback;
+    }
+
+    /** Рабочая папка программы (путь внутри Linux-окружения). */
+    public void setCwd(String cwd) {
+        this.cwd = cwd;
     }
 
     public void setGuestExecutable(String guestExecutable) {
@@ -113,7 +119,7 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         String command = nativeLibraryDir + "/libproot.so";
         command += " --kill-on-exit";
         command += " --rootfs=" + rootDir;
-        command += " --cwd=" + ImageFs.HOME_PATH;
+        command += " --cwd=" + cwd.replace(" ", "\\ ");
         command += " --bind=/dev";
 
         if (bindSHM) {

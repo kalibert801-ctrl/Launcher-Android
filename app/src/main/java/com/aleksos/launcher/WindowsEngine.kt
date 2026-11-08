@@ -41,14 +41,15 @@ object WindowsEngine {
     class Standard(val name: String, val command: String, val hint: String)
 
     val STANDARD = listOf(
-        Standard("Блокнот", "notepad", "Простой текстовый редактор"),
-        Standard("WordPad", "wordpad", "Редактор документов"),
-        Standard("Командная строка", "wineconsole cmd", "cmd.exe"),
-        Standard("Проводник Windows", "winefile", "Файлы дисков C: и D:"),
+        // «start /max» — программа открывается развёрнутой на весь экран
+        Standard("Блокнот", "start /max notepad", "Простой текстовый редактор"),
+        Standard("WordPad", "start /max wordpad", "Редактор документов"),
+        Standard("Командная строка", "start /max wineconsole cmd", "cmd.exe"),
+        Standard("Проводник Windows", "start /max winefile", "Диски C:, D: (AleksOS), E: (телефон)"),
         Standard("Диспетчер задач", "taskmgr", "Запущенные Windows-программы"),
-        Standard("Редактор реестра", "regedit", "regedit.exe"),
+        Standard("Редактор реестра", "start /max regedit", "regedit.exe"),
         Standard("Сапёр", "winemine", "Игра"),
-        Standard("Панель управления", "control", "Настройки Windows"),
+        Standard("Панель управления", "start /max control", "Настройки Windows"),
         Standard("Настройка Wine", "winecfg", "Версия Windows, диски, графика"),
     )
 
@@ -64,8 +65,8 @@ object WindowsEngine {
         }
         val dir = WineRuntime.escape(WineRuntime.toWindowsPath(file.parentFile ?: file))
         val name = WineRuntime.escape(file.name)
-        // winhandler.exe (из Winlator) запускает программу из её папки — так многие игры находят свои файлы
-        run(activity, app.name, "winhandler.exe /dir $dir $name")
+        // start /d — запуск из папки программы (так многие игры находят свои файлы), /max — на весь экран
+        run(activity, app.name, "start /max /d $dir $name")
     }
 
     /** Запустить стандартную программу Wine. */
@@ -80,16 +81,8 @@ object WindowsEngine {
             offerInstall(activity, "Для запуска программ нужна новая версия движка Windows (пакет ${EngineManager.PACKAGE}).", update = true)
             return
         }
-        val running = WineActivity.runningTitle
-        if (running != null) {
-            if (running == title) { WineActivity.bringToFront(activity); return }
-            AosDialog(activity).title(title)
-                .message("Сейчас открыта программа «$running». Пока можно запускать только одну Windows-программу за раз.")
-                .button("Отмена")
-                .button("Открыть «$running»", primary = true) { WineActivity.bringToFront(activity) }
-                .show()
-            return
-        }
+        // Окно Windows уже открыто — запускаем программу в нём (несколько программ одновременно)
+        if (WineActivity.launchInRunning(activity, title, command)) return
         WineActivity.start(activity, title, command)
     }
 

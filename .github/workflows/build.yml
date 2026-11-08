@@ -24,6 +24,13 @@ jobs:
       - name: NDK и CMake для нативной части движка
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
 
+      - name: Русская локаль для движка Windows
+        # glibc 2.31 — как в образе движка (Debian bullseye); файлы кладутся в APK (assets/locale)
+        run: |
+          mkdir -p app/src/main/assets/locale
+          docker run --rm -v "$PWD/app/src/main/assets/locale:/out" debian:bullseye sh -c "apt-get update -qq && apt-get install -y -qq locales > /dev/null && (localedef -i ru_RU -f UTF-8 /out/ru_RU.utf8 || true) && test -f /out/ru_RU.utf8/LC_CTYPE && chmod -R a+rX /out"
+          ls -la app/src/main/assets/locale/ru_RU.utf8
+
       - name: Сборка
         env:
           ALEKSOS_KEY_PASSWORD: ${{ secrets.ALEKSOS_KEY_PASSWORD }}

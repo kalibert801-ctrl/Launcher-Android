@@ -175,6 +175,30 @@ public class XServer {
         }
     }
 
+    /**
+     * AleksOS: напечатать русскую букву. Частые буквы — закреплённые клавиши (Shift — заглавная),
+     * редкие — «плавающая» клавиша: InputDeviceManager сам переназначит её и пошлёт MappingNotify.
+     */
+    public void injectCyrillicChar(char ch) {
+        int keycode = Keyboard.cyrillicKeycode(ch);
+        boolean upper = Character.isUpperCase(ch);
+        if (keycode > 0) {
+            if (upper) injectKeyPress(XKeycode.KEY_SHIFT_L);
+            try (XLock lock = lock(Lockable.WINDOW_MANAGER, Lockable.INPUT_DEVICE)) {
+                keyboard.setKeyPress((byte)keycode, 0);
+                keyboard.setKeyRelease((byte)keycode);
+            }
+            if (upper) injectKeyRelease(XKeycode.KEY_SHIFT_L);
+        }
+        else {
+            byte dyn = (byte)Keyboard.CYRILLIC_DYNAMIC_KEYCODE;
+            try (XLock lock = lock(Lockable.WINDOW_MANAGER, Lockable.INPUT_DEVICE)) {
+                keyboard.setKeyPress(dyn, 0x01000000 | ch);
+                keyboard.setKeyRelease(dyn);
+            }
+        }
+    }
+
     public void injectKeyRelease(XKeycode xKeycode) {
         try (XLock lock = lock(Lockable.WINDOW_MANAGER, Lockable.INPUT_DEVICE)) {
             keyboard.setKeyRelease(xKeycode.id);

@@ -36,6 +36,7 @@ import com.winlator.xenvironment.components.XServerComponent
 import com.winlator.xserver.Pointer
 import com.winlator.xserver.ScreenInfo
 import com.winlator.xserver.XServer
+import com.winlator.xserver.Keyboard as XKeyboard
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -60,6 +61,20 @@ class WineActivity : Activity() {
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_COMMAND, command)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+
+        @Volatile private var instance: WineActivity? = null
+
+        /**
+         * Запустить ещё одну программу в уже открытом окне Windows (тот же Wine, тот же рабочий стол).
+         * false — окно Windows не открыто.
+         */
+        fun launchInRunning(context: Context, title: String, command: String): Boolean {
+            val act = instance ?: return false
+            if (act.closing || act.isFinishing || act.environment == null) return false
+            act.runOnUiThread { act.launchExtra(title, command) }
+            bringToFront(context)
+            return true
         }
 
         /** Вернуться к уже запущенной программе. */
@@ -92,6 +107,7 @@ class WineActivity : Activity() {
             finish(); return
         }
 
+        instance = this
         val screen = screenSize()
         xServer = XServer(ScreenInfo(screen.first, screen.second))
         xServerView = WineSurface(this, xServer)
@@ -115,7 +131,9 @@ class WineActivity : Activity() {
         frame.addView(status, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         root.addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
+        contentFrame = frame
         setupTouch()
+        setupKeyboardShift(root)
 
         runningTitle = title
         startedAt = System.currentTimeMillis()
@@ -130,8 +148,18 @@ class WineActivity : Activity() {
             return it.groupValues[1].toInt() to it.groupValues[2].toInt()
         }
         val scale = maxOf(1f, m.density / 1.6f)
-        val w = (m.widthPixels / scale).toInt()
-        val h = ((m.heightPixels - dp(44) - dp(24)) / scale).toInt()
+        // место под рабочий стол Windows = окно без строки состояния, навигации и нашего заголовка
+        var widthPx = m.widthPixels
+        var heightPx = m.heightPixels - dp(44) - dp(24)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val metrics = windowManager.currentWindowMetrics
+            val bars = metrics.windowInsets.getInsetsIgnoringVisibility(
+                android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
+            widthPx = metrics.bounds.width() - bars.left - bars.right
+            heightPx = metrics.bounds.height() - bars.top - bars.bottom - dp(44)
+        }
+        val w = (widthPx / scale).toInt()
+        val h = (heightPx / scale).toInt()
         return (w - w % 2) to (h - h % 2)
     }
 
@@ -146,9 +174,7 @@ class WineActivity : Activity() {
             env.addComponent(XServerComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.XSERVER_PATH)))
             val launcher = GuestProgramLauncherComponent()
             launcher.setGuestExecutable("wine explorer /desktop=shell,${screen.first}x${screen.second} $command")
-            launcher.setEnvVars(WineRuntime.envVars(this))
-            launcher.setBox64EnvVars(WineRuntime.box64EnvVars(this))
-            launcher.setBindingPaths(arrayOf(FileOps.storageRoot.absolutePath))
+            configure(launcher)
             launcher.setTerminationCallback { code -> main.post { onWineExit(code) } }
             env.addComponent(launcher)
             environment = env
@@ -175,9 +201,62 @@ class WineActivity : Activity() {
         }
     }
 
+    private fun configure(launcher: GuestProgramLauncherComponent) {
+        launcher.setEnvVars(WineRuntime.envVars(this))
+        launcher.setBox64EnvVars(WineRuntime.box64EnvVars(this))
+        launcher.setBindingPaths(arrayOf(FileOps.storageRoot.absolutePath))
+        // рабочая папка — AleksOS (в Windows это диск D:)
+        if (FileOps.aleksosDir.isDirectory) launcher.setCwd(FileOps.aleksosDir.absolutePath)
+    }
+
+    /** Ещё одна программа в этом же окне Windows: отдельный процесс, тот же Wine. */
+    private fun launchExtra(newTitle: String, command: String) {
+        val env = environment ?: return
+        title = newTitle
+        titleView?.text = newTitle
+        WineRuntime.writeLog("=== AleksOS: ещё одна программа — $newTitle: $command ===")
+        thread(name = "wine-extra") {
+            runCatching {
+                val extra = GuestProgramLauncherComponent()
+                extra.setGuestExecutable("wine $command")
+                configure(extra)
+                extra.setEnvironment(env)
+                extra.start()
+                synchronized(extras) { extras += extra }
+            }.onFailure { WineRuntime.writeLog("Ошибка запуска: $it") }
+        }
+    }
+
+    private var contentFrame: FrameLayout? = null
+    private var lastTouchY = 0f
+
+    /**
+     * Экранная клавиатура не сжимает рабочий стол Windows, а закрывает его низ.
+     * Если нажатое место оказалось под клавиатурой — сдвигаем рабочий стол вверх.
+     */
+    private fun setupKeyboardShift(root: View) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val ime = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+            val nav = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+            val frame = contentFrame
+            if (frame != null) {
+                val covered = (ime - nav).coerceAtLeast(0)
+                val visible = frame.height - covered
+                val shift = if (covered == 0) 0f else (lastTouchY + dp(90) - visible).coerceIn(0f, covered.toFloat())
+                frame.animate().translationY(-shift).setDuration(150).start()
+            }
+            v.onApplyWindowInsets(insets)
+        }
+    }
+
+    private val extras = ArrayList<GuestProgramLauncherComponent>()
+    private var titleView: TextView? = null
+
     private fun onWineExit(code: Int) {
         WineRuntime.writeLog("=== Wine завершился, код $code ===")
         runningTitle = null
+        if (instance === this) instance = null
         if (closing || isFinishing) return
         val quick = System.currentTimeMillis() - startedAt < 15_000
         if (quick || code != 0) showError("Программа закрылась (код $code).")
@@ -223,7 +302,7 @@ class WineActivity : Activity() {
             setPadding(dp(10), 0, dp(4), 0)
         }
         bar.addView(ImageView(this).apply { setImageDrawable(LogoDrawable()) }, LinearLayout.LayoutParams(dp(22), dp(22)))
-        bar.addView(TextView(this).apply {
+        bar.addView(TextView(this).also { titleView = it }.apply {
             text = title
             setTextColor(Color.WHITE)
             textSize = 15f
@@ -270,8 +349,14 @@ class WineActivity : Activity() {
     private fun close() {
         closing = true
         runningTitle = null
-        thread { runCatching { environment?.stopEnvironmentComponents() } }
+        thread { stopAll() }
         finishAndRemoveTask()
+    }
+
+    private fun stopAll() {
+        synchronized(extras) { extras.forEach { runCatching { it.stop() } }; extras.clear() }
+        runCatching { environment?.stopEnvironmentComponents() }
+        if (instance === this) instance = null
     }
 
     override fun onBackPressed() {
@@ -294,7 +379,7 @@ class WineActivity : Activity() {
         if (!closing && isFinishing) {
             closing = true
             runningTitle = null
-            thread { runCatching { environment?.stopEnvironmentComponents() } }
+            thread { stopAll() }
         }
     }
 
@@ -315,7 +400,7 @@ class WineActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (::xServer.isInitialized && event.keyCode != KeyEvent.KEYCODE_BACK &&
             event.keyCode != KeyEvent.KEYCODE_VOLUME_UP && event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) {
-            if (xServer.keyboard.onKeyEvent(event)) return true
+            if (handleKeyEvent(xServer, event)) return true
         }
         return super.dispatchKeyEvent(event)
     }
@@ -339,6 +424,7 @@ class WineActivity : Activity() {
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = e.x; downY = e.y
+                    lastTouchY = e.y
                     dragging = false; longDone = false; scrolling = false
                     moveTo(e.x, e.y)
                     main.postDelayed(longPress, longPressMs)
@@ -400,7 +486,7 @@ class WineActivity : Activity() {
     }
 
     /** Поверхность X-сервера, которая умеет принимать текст с экранной клавиатуры. */
-    private class WineSurface(context: Context, private val server: XServer) : XServerView(context, server) {
+    private inner class WineSurface(context: Context, private val server: XServer) : XServerView(context, server) {
         init {
             isFocusable = true
             isFocusableInTouchMode = true
@@ -409,17 +495,30 @@ class WineActivity : Activity() {
         override fun onCheckIsTextEditor() = true
 
         override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
-            outAttrs.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            // «видимый пароль»: клавиатура не подсказывает слова и отдаёт буквы сразу по одной
+            outAttrs.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
             return object : BaseInputConnection(this, false) {
-                private val charMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
+                private var composing = ""
 
                 override fun commitText(text: CharSequence, newCursorPosition: Int): Boolean {
-                    for (ch in text) {
-                        val events = charMap.getEvents(charArrayOf(ch)) ?: continue
-                        events.forEach { server.keyboard.onKeyEvent(it) }
-                    }
+                    replaceComposing(text.toString()); composing = ""
                     return true
+                }
+
+                override fun setComposingText(text: CharSequence, newCursorPosition: Int): Boolean {
+                    replaceComposing(text.toString()); composing = text.toString()
+                    return true
+                }
+
+                override fun finishComposingText(): Boolean { composing = ""; return true }
+
+                /** Набираемое слово: стираем лишнее и допечатываем разницу. */
+                private fun replaceComposing(text: String) {
+                    val common = composing.commonPrefixWith(text).length
+                    repeat(composing.length - common) { key(KeyEvent.KEYCODE_DEL) }
+                    typeText(server, text.substring(common))
                 }
 
                 override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
@@ -428,7 +527,7 @@ class WineActivity : Activity() {
                 }
 
                 override fun sendKeyEvent(event: KeyEvent): Boolean {
-                    server.keyboard.onKeyEvent(event)
+                    handleKeyEvent(server, event)
                     return true
                 }
 
@@ -443,5 +542,27 @@ class WineActivity : Activity() {
                 }
             }
         }
+    }
+
+    /** Напечатать текст: латиница и знаки — обычными клавишами, русские буквы — своими. */
+    private fun typeText(server: XServer, text: String) {
+        val charMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
+        for (ch in text) {
+            when {
+                ch == '\n' -> tapKey(KeyEvent.KEYCODE_ENTER)
+                XKeyboard.isCyrillic(ch) -> server.injectCyrillicChar(ch)
+                else -> charMap.getEvents(charArrayOf(ch))?.forEach { server.keyboard.onKeyEvent(it) }
+            }
+        }
+    }
+
+    /** Клавиша с клавиатуры: русская буква (по символу) или обычная клавиша. */
+    private fun handleKeyEvent(server: XServer, event: KeyEvent): Boolean {
+        val ch = event.unicodeChar.toChar()
+        if (event.unicodeChar != 0 && XKeyboard.isCyrillic(ch)) {
+            if (event.action == KeyEvent.ACTION_DOWN) server.injectCyrillicChar(ch)
+            return true
+        }
+        return server.keyboard.onKeyEvent(event)
     }
 }
