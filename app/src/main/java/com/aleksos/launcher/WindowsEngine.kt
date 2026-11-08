@@ -83,16 +83,21 @@ object WindowsEngine {
             }
             file = target
         }
+        runFile(activity, title, file, args)
+    }
+
+    /** Запустить файл программы с аргументами (args — через пробел, без кавычек). */
+    fun runFile(activity: Activity, title: String, file: File, args: String = "") {
         val parent = file.parentFile ?: file
         val name = WineRuntime.escape(file.name)
+        val tail = if (args.isNotBlank()) " " + args.trim() else ""
         // start /d — запуск из папки программы (так многие игры находят свои файлы), /max — на весь экран
-        var command = "start /max /d ${WineRuntime.escape(WineRuntime.toWindowsPath(parent, activity))} $name"
+        var command = "start /max /d ${WineRuntime.escape(WineRuntime.toWindowsPath(parent, activity))} $name$tail"
         val (exe, params) = WineRuntime.toExec(command)
         if (!WinHandler.fits(exe, params) && EngineManager.isInstalled(activity)) {
             // длинный путь: папке программы — короткая буква диска
-            command = "start /max /d ${WineRuntime.mapShortDrive(activity, parent)}\\. $name"
+            command = "start /max /d ${WineRuntime.mapShortDrive(activity, parent)}\\. $name$tail"
         }
-        if (args.isNotEmpty()) command += " " + args
         run(activity, title, command)
     }
 

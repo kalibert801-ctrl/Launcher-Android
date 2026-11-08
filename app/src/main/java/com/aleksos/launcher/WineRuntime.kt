@@ -140,22 +140,31 @@ object WineRuntime {
      * (ALSAServerComponent → AAudio Android). В реестре Wine: HKCU\Software\Wine\Drivers, Audio = alsa.
      */
     private fun setAudioDriver(rootfs: File) {
-        val reg = File(rootfs, "home/xuser/.wine/user.reg")
-        if (!reg.isFile) return
+        setRegistryValues(File(rootfs, "home/xuser/.wine/user.reg"), "Software\\\\Wine\\\\Drivers", mapOf("\"Audio\"" to "\"alsa\""))
+    }
+
+    /**
+     * Записать значения в раздел реестра пользователя Wine (user.reg). key — как в файле, с двойной «\»;
+     * values: имя в кавычках → значение в формате реестра. Только когда Wine не запущен.
+     */
+    fun setRegistryValues(context: Context, key: String, values: Map<String, String>) =
+        setRegistryValues(File(EngineManager.rootfsDir(context), "home/xuser/.wine/user.reg"), key, values)
+
+    private fun setRegistryValues(reg: File, key: String, values: Map<String, String>) {
+        if (!reg.isFile || values.isEmpty()) return
         val text = reg.readText()
-        // в файле реестра обратная косая черта записана двойной
-        val header = "[Software\\\\Wine\\\\Drivers]"
-        val audio = "\"Audio\"=\"alsa\""
+        val header = "[$key]"
+        val lines = values.map { (k, v) -> "$k=$v" }
         val start = text.indexOf(header)
         val updated = if (start < 0) {
-            text.trimEnd() + "\n\n$header\n$audio\n"
+            text.trimEnd() + "\n\n$header\n" + lines.joinToString("\n") + "\n"
         } else {
             val lineEnd = text.indexOf('\n', start).let { if (it < 0) text.length else it }
             val next = text.indexOf("\n[", lineEnd).let { if (it < 0) text.length else it }
             val section = text.substring(lineEnd, next)
-            if (section.contains(audio)) return
-            val cleaned = section.lines().filterNot { it.startsWith("\"Audio\"=") }.joinToString("\n")
-            text.substring(0, lineEnd) + "\n" + audio + cleaned + text.substring(next)
+            if (lines.all { section.contains(it) }) return
+            val kept = section.lines().filterNot { line -> values.keys.any { line.startsWith("$it=", ignoreCase = true) } }
+            text.substring(0, lineEnd) + "\n" + lines.joinToString("\n") + kept.joinToString("\n") + text.substring(next)
         }
         reg.writeText(updated)
     }

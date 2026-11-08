@@ -304,6 +304,18 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(6)
         })
+        // «Компоненты Windows» — библиотеки, которых нет в Wine (MFC42, DirectX, Visual C++)
+        startPanel.addView(TextView(this).apply {
+            text = "⚙  Компоненты Windows  ›"
+            setTextColor(Ui.ACCENT_TEXT)
+            textSize = 13f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            Ui.pressable(this, Ui.rounded(Ui.FIELD, dp(8).toFloat()), dp(8).toFloat())
+            setOnClickListener { closeStartMenu(); WindowsComponents.show(this@MainActivity) }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(4)
+        })
 
         startPanel.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
