@@ -1,7 +1,7 @@
 name: Box64 (новая версия)
 
 # Собирает Box64 из исходников (github.com/ptitSeb/box64, MIT) под Linux ARM64 + glibc 2.31
-# (как в образе Windows Kernel: Debian bullseye) с оптимизацией под Snapdragon 8 Gen 2.
+# (как в образе Windows Kernel: Debian bullseye) (общая сборка ARM64: настройка SD8G2 требует нового компилятора).
 # Новая версия переводит AVX/AVX2 — без них не запускаются многие новые игры.
 # Результат — Release box64-<версия> (prerelease); AleksOS ставит его из «Компонентов Windows».
 
@@ -41,7 +41,7 @@ jobs:
             cmake --version; gcc --version | head -1
             git clone --depth 1 --branch "v$V" https://github.com/ptitSeb/box64 /src
             mkdir /src/build && cd /src/build
-            cmake .. -DSD8G2=1 -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+            cmake .. -DARM64=1 -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
             make -j$(nproc) || make -j1
             strip box64
             ./box64 --version || true
