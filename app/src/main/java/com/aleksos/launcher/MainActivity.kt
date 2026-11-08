@@ -77,6 +77,10 @@ class MainActivity : Activity() {
     private var desktopItems: Map<String, Item> = emptyMap()
     private var loadGeneration = 0
 
+    private lateinit var rootFrame: FrameLayout
+    private var boot: BootScreen? = null
+    private var biosFromMenu: BiosView? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = WindowsAppStore(this)
@@ -84,13 +88,20 @@ class MainActivity : Activity() {
         taskbarPins = DesktopPins(this, prefsName = "taskbar", defaultLimit = 4)
         startAdapter = ItemAdapter()
         setContentView(buildLayout())
+        // «Включение» AleksOS: проверка оборудования → (BIOS) → заставка → рабочий стол
+        if (savedInstanceState == null && SystemSettings(this).shouldShowBoot()) {
+            boot = BootScreen(this, rootFrame) {
+                boot = null
+                Updater.autoCheck(this)
+            }.also { it.start() }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         versionLabel.text = "AleksOS ${Updater.currentVersionName(this)}"
         reload()
-        Updater.autoCheck(this)
+        if (boot == null) Updater.autoCheck(this)
     }
 
     /** Нажатие «Домой», когда лаунчер уже открыт: закрыть меню «Пуск». */
@@ -106,6 +117,8 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        boot?.let { if (it.isBiosOpen) it.onBack(); return }
+        biosFromMenu?.let { it.onBack(); return }
         // На рабочем столе «Назад» только закрывает меню «Пуск».
         if (startMenu.visibility == View.VISIBLE) closeStartMenu()
     }
@@ -114,6 +127,7 @@ class MainActivity : Activity() {
 
     private fun buildLayout(): View {
         val root = FrameLayout(this).apply { setBackgroundColor(0x1A000000) }
+        rootFrame = root
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         desktop = DesktopGrid(this).apply {
@@ -265,6 +279,7 @@ class MainActivity : Activity() {
         bottom.addView(versionLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         bottom.addView(menuButton("+ .exe") { closeStartMenu(); pickWindowsProgram() })
         bottom.addView(menuButton("⟳") { closeStartMenu(); Updater.manualCheck(this) })
+        bottom.addView(menuButton("BIOS") { closeStartMenu(); openBios() })
         bottom.addView(menuButton("⚙") {
             closeStartMenu()
             startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -316,6 +331,19 @@ class MainActivity : Activity() {
         search.clearFocus()
         startPanel.animate().translationY(dp(40).toFloat()).alpha(0f).setDuration(110)
             .withEndAction { startMenu.visibility = View.GONE }.start()
+    }
+
+    /** BIOS из меню «Пуск» (без перезагрузки). */
+    private fun openBios() {
+        if (biosFromMenu != null) return
+        val view = BiosView(this) {
+            biosFromMenu?.let { rootFrame.removeView(it) }
+            biosFromMenu = null
+            Ui.setFullscreen(this, false)
+        }
+        Ui.setFullscreen(this, true)
+        biosFromMenu = view
+        rootFrame.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
     }
 
     /** Меню по долгому нажатию на пустое место рабочего стола. */

@@ -14,6 +14,20 @@ object WindowsEngine {
     /** Готов ли движок к запуску программ. */
     val isAvailable: Boolean = false
 
+    /** Модуль движка: название, зачем нужен и установленная версия (null — не установлен). */
+    class Module(val name: String, val purpose: String, val version: String?)
+
+    /** Список модулей для экрана загрузки и BIOS. Версии появятся после установки движка. */
+    fun modules(): List<Module> = listOf(
+        Module("Wine", "Windows API", null),
+        Module("Box64", "x86-64 → ARM64", null),
+        Module("DXVK", "DirectX 9–11 → Vulkan", null),
+        Module("VKD3D", "DirectX 12 → Vulkan", null),
+        Module("Turnip", "Vulkan для Adreno", null),
+        Module("X-сервер", "окна программ", null),
+        Module("PulseAudio", "звук", null),
+    )
+
     fun launch(context: Context, app: WindowsApp) {
         if (!isAvailable) {
             AosDialog(context)

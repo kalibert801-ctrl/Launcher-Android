@@ -31,6 +31,25 @@ object Ui {
     const val TEXT_DIM = 0xFF64748B.toInt()
     const val PRESSED = 0x22000000
 
+    /** Спрятать/показать строку состояния и кнопки навигации (загрузка, BIOS). */
+    fun setFullscreen(activity: android.app.Activity, on: Boolean) {
+        val window = activity.window
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val c = window.insetsController ?: return
+            if (on) {
+                c.hide(android.view.WindowInsets.Type.systemBars())
+                c.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                c.show(android.view.WindowInsets.Type.systemBars())
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = if (on) {
+                View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            } else 0
+        }
+    }
+
     fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     fun rounded(color: Int, radiusPx: Float, strokeColor: Int = 0, strokePx: Int = 0) =
