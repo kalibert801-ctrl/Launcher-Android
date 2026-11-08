@@ -25,10 +25,17 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
 
       - name: Сборка
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          ALEKSOS_KEY_PASSWORD: ${{ secrets.ALEKSOS_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ALEKSOS_KEY_PASSWORD" ]; then
+            echo "::error::Нет секрета ALEKSOS_KEY_PASSWORD (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+          ./gradlew assembleRelease --no-daemon
 
       - name: Переименовать APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk "AleksOS-Launcher-${{ github.run_number }}.apk"
+        run: cp app/build/outputs/apk/release/app-release.apk "AleksOS-Launcher-${{ github.run_number }}.apk"
 
       - name: Сохранить APK (вкладка Actions)
         uses: actions/upload-artifact@v4

@@ -36,3 +36,7 @@ google-services.json
 
 # Фиксированный отладочный ключ подписи (не секретный)
 !app/debug-signing.keystore
+!app/aleksos-release.keystore
+
+# Пароль ключа подписи (только на ПК владельца и в секретах GitHub)
+signing.properties

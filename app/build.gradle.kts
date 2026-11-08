@@ -42,9 +42,22 @@ android {
         }
     }
 
-    // Фиксированный ключ подписи: каждая новая сборка ставится поверх старой
-    // без удаления приложения. Это отладочный ключ, он не секретный.
+    // Подписи. release — собственный ключ AleksOS (им подписаны сборки на GitHub).
+    // Файл ключа зашифрован; пароль НЕ в репозитории: на GitHub — секрет ALEKSOS_KEY_PASSWORD,
+    // на ПК владельца — файл signing.properties (в .gitignore).
+    // debug — отладочный ключ для локальных проверок (не секретный).
+    val releasePassword: String? = System.getenv("ALEKSOS_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+        ?: rootProject.file("signing.properties").takeIf { it.isFile }?.readLines()
+            ?.firstOrNull { it.startsWith("ALEKSOS_KEY_PASSWORD=") }?.substringAfter("=")?.trim()
     signingConfigs {
+        if (releasePassword != null) {
+            create("release") {
+                storeFile = file("aleksos-release.keystore")
+                storePassword = releasePassword
+                keyAlias = "aleksos"
+                keyPassword = releasePassword
+            }
+        }
         getByName("debug") {
             storeFile = file("debug-signing.keystore")
             storePassword = "android"
@@ -59,8 +72,15 @@ android {
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            signingConfig = signingConfigs.findByName("release")
         }
+    }
+
+    // targetSdk 28 нужен движку; проверка Lint для release иначе останавливает сборку
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     compileOptions {

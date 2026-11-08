@@ -81,8 +81,13 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
 - GitHub: `kalibert801-ctrl/Launcher-Android`, лицензия GPL-3.0.
 - GitHub Actions (`.github/workflows/build.yml`) собирает APK на каждый push.
   Из ветки `main` APK публикуется в Releases (тег `build-N`), владелец качает его на телефон оттуда.
-- Подпись: фиксированный отладочный ключ `app/debug-signing.keystore` (пароль `android`),
-  чтобы новые сборки ставились поверх старых. Он не секретный и специально лежит в репозитории.
+- Подпись: сборки на GitHub — release (не отладочная) с ключом `app/aleksos-release.keystore` (alias `aleksos`).
+  Файл ключа зашифрован, пароль НЕ в репозитории: секрет GitHub `ALEKSOS_KEY_PASSWORD`, на ПК —
+  `signing.properties` (в .gitignore). Публиковать пароль нельзя: иначе кто угодно подпишет поддельное
+  обновление. Отладочный ключ `app/debug-signing.keystore` (пароль `android`) — только для локальных
+  debug-сборок. Переход с отладочной подписи на release потребовал один раз удалить AleksOS.
+  Причина перехода: Play Защита помечала отладочную сборку как «вредоносную» (запуск скачанных программ,
+  самообновление, targetSdk 28); заодно убрано лишнее MANAGE_EXTERNAL_STORAGE.
 - AGP 8.7.3, Kotlin 2.0.21, Gradle 8.14.3, compileSdk/targetSdk 35, minSdk 26, Java 17.
 - Локальная сборка: `./gradlew assembleDebug` (нужен Android SDK / Android Studio).
 - Папка проекта у владельца: `C:\Users\kalib\OneDrive\Desktop\Launcher-Android` (синхронизируется
