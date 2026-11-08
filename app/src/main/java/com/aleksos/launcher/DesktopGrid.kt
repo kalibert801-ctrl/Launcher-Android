@@ -21,7 +21,10 @@ class DesktopGrid(context: Context) : ViewGroup(context) {
     private val prefs = context.getSharedPreferences("desktop_positions", Context.MODE_PRIVATE)
     private val keys = ArrayList<String>()          // ключ иконки по порядку детей
     private val cells = HashMap<String, Int>()      // ключ → номер ячейки
-    private val columns = 4
+    /** Лёжа (телефон повёрнут) — больше колонок, а места иконок хранятся отдельно. */
+    private val landscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    private val prefsKey = if (landscape) "cells_land" else "cells"
+    private var columns = 4
     private val cellHeight = Ui.dp(context, 96)
 
     private var dragKey: String? = null
@@ -81,6 +84,8 @@ class DesktopGrid(context: Context) : ViewGroup(context) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
         val h = MeasureSpec.getSize(heightMeasureSpec)
         setMeasuredDimension(w, h)
+        val cols = if (landscape) maxOf(4, w / Ui.dp(context, 100)) else 4
+        if (cols != columns) { columns = cols; cells.clear() }
         val cw = MeasureSpec.makeMeasureSpec(w / columns, MeasureSpec.EXACTLY)
         val ch = MeasureSpec.makeMeasureSpec(cellHeight, MeasureSpec.EXACTLY)
         for (i in 0 until childCount) getChildAt(i).measure(cw, ch)
@@ -132,7 +137,7 @@ class DesktopGrid(context: Context) : ViewGroup(context) {
     }
 
     private fun loadSaved(): Map<String, Int> = try {
-        val json = JSONObject(prefs.getString("cells", "{}") ?: "{}")
+        val json = JSONObject(prefs.getString(prefsKey, "{}") ?: "{}")
         json.keys().asSequence().associateWith { json.getInt(it) }
     } catch (_: Exception) {
         emptyMap()
@@ -140,8 +145,8 @@ class DesktopGrid(context: Context) : ViewGroup(context) {
 
     private fun save() {
         // Сохраняем и старые места иконок, которых сейчас нет (например, приложение временно скрыто).
-        val json = try { JSONObject(prefs.getString("cells", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+        val json = try { JSONObject(prefs.getString(prefsKey, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
         cells.forEach { (k, v) -> json.put(k, v) }
-        prefs.edit().putString("cells", json.toString()).apply()
+        prefs.edit().putString(prefsKey, json.toString()).apply()
     }
 }

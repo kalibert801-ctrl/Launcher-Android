@@ -36,6 +36,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:screenOrientation="fullUser"
             android:clearTaskOnLaunch="true"
             android:excludeFromRecents="true"
             android:exported="true"
@@ -56,6 +57,7 @@
         <!-- Окно «Этот телефон» (проводник): отдельная задача в «недавних» -->
         <activity
             android:name=".ExplorerActivity"
+            android:screenOrientation="fullUser"
             android:exported="false"
             android:label="Этот телефон"
             android:launchMode="singleTask"
@@ -66,6 +68,7 @@
         <!-- Окно Windows-программы (Wine + X-сервер). Своя задача в «недавних». -->
         <activity
             android:name=".WineActivity"
+            android:screenOrientation="fullUser"
             android:exported="false"
             android:label="Windows-программа"
             android:launchMode="singleTask"
