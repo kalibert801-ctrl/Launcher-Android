@@ -437,6 +437,15 @@ class MainActivity : Activity() {
         val generation = ++loadGeneration
         val windowsApps = store.load()
         executor.execute {
+            // программы, установленные через setup.exe, сами появляются на рабочем столе
+            val installed = runCatching { InstalledPrograms.scan(this, store) }.getOrDefault(emptyList())
+            if (installed.isNotEmpty()) {
+                runOnUiThread {
+                    toast(if (installed.size == 1) "Установлена программа «${installed[0]}»" else "Установлены программы: ${installed.joinToString()}")
+                    reload()
+                }
+                return@execute
+            }
             val androidItems = loadAndroidApps()
             val pinnedDesktop = desktopPins.load()
             val pinnedTaskbar = taskbarPins.load()
@@ -455,8 +464,13 @@ class MainActivity : Activity() {
                     ?.takeIf { ExeIcon.isExe(it) }
                     ?.let { f -> ExeIcon.drawable(this, f)?.let { exeIcons[app.id] = it } }
             }
-            desktopFiles.filter { ExeIcon.isExe(it) }.forEach { f ->
-                ExeIcon.drawable(this, f)?.let { exeIcons[f.absolutePath] = it }
+            desktopFiles.forEach { f ->
+                val exe = when {
+                    ExeIcon.isExe(f) -> f
+                    f.extension.equals("lnk", true) -> LnkFile.read(f)?.targetFile(this)
+                    else -> null
+                }
+                exe?.let { ExeIcon.drawable(this, it) }?.let { exeIcons[f.absolutePath] = it }
             }
             runOnUiThread {
                 if (isDestroyed || generation != loadGeneration) return@runOnUiThread
@@ -473,7 +487,7 @@ class MainActivity : Activity() {
                 pinnedDesktop.mapNotNullTo(onDesktop) { byComponent[it] }
                 onDesktop += windowsItems
                 desktopFiles.mapTo(onDesktop) {
-                    Item(Kind.FILE, it.name, exeIcons[it.absolutePath] ?: FileIconDrawable.forEntry(it), file = it)
+                    Item(Kind.FILE, if (it.extension.equals("lnk", true)) it.nameWithoutExtension else it.name, exeIcons[it.absolutePath] ?: FileIconDrawable.forEntry(it), file = it)
                 }
                 desktopItems = onDesktop.associateBy { it.key }
                 desktop.setEntries(onDesktop.map { it.key to makeCell(it, darkText = false) })
@@ -563,6 +577,11 @@ class MainActivity : Activity() {
     private fun openFile(file: File) {
         if (file.isDirectory) {
             ExplorerActivity.open(this, file)
+            return
+        }
+        if (file.extension.lowercase() in WINDOWS_EXTENSIONS) {
+            // Windows-программа, установщик или ярлык — запускаем в Windows
+            WindowsEngine.launchFile(this, file.nameWithoutExtension, file)
             return
         }
         try {

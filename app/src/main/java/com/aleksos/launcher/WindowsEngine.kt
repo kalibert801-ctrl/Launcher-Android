@@ -64,16 +64,36 @@ object WindowsEngine {
                 .button("OK", primary = true).show()
             return
         }
+        launchFile(activity, app.name, file)
+    }
+
+    /** Запустить .exe/.msi/.bat/.lnk (ярлык — по тому, куда он ведёт). */
+    fun launchFile(activity: Activity, title: String, source: File) {
+        var file = source
+        var args = ""
+        if (file.extension.equals("lnk", true)) {
+            val lnk = LnkFile.read(file)
+            args = lnk?.arguments.orEmpty().trim()
+            val target = lnk?.targetFile(activity)
+            if (target == null) {
+                AosDialog(activity).title(title)
+                    .message("Ярлык ведёт к программе, которой нет на телефоне. Возможно, она удалена.")
+                    .button("OK", primary = true).show()
+                return
+            }
+            file = target
+        }
         val parent = file.parentFile ?: file
         val name = WineRuntime.escape(file.name)
         // start /d — запуск из папки программы (так многие игры находят свои файлы), /max — на весь экран
-        var command = "start /max /d ${WineRuntime.escape(WineRuntime.toWindowsPath(parent))} $name"
+        var command = "start /max /d ${WineRuntime.escape(WineRuntime.toWindowsPath(parent, activity))} $name"
         val (exe, params) = WineRuntime.toExec(command)
         if (!WinHandler.fits(exe, params) && EngineManager.isInstalled(activity)) {
             // длинный путь: папке программы — короткая буква диска
             command = "start /max /d ${WineRuntime.mapShortDrive(activity, parent)}\\. $name"
         }
-        run(activity, app.name, command)
+        if (args.isNotEmpty()) command += " " + args
+        run(activity, title, command)
     }
 
     /** Запустить стандартную программу Wine. */

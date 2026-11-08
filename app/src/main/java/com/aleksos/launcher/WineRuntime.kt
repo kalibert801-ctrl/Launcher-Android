@@ -197,17 +197,57 @@ object WineRuntime {
      * Путь Android → путь Windows. Файлы из папки AleksOS — на диске D:, остальное — через Z:.
      * Пробелы экранируются «\ », так команду понимает запуск через proot.
      */
-    fun toWindowsPath(file: File): String {
+    fun toWindowsPath(file: File, context: Context? = null): String {
         val path = file.absolutePath
         val aleksos = FileOps.aleksosDir.absolutePath
         val storage = FileOps.storageRoot.absolutePath
+        val driveC = context?.let { driveC(it).absolutePath }
+        val rootfs = context?.let { EngineManager.rootfsDir(it).absolutePath }
         fun under(root: String) = path == root || path.startsWith("$root/")
         val (drive, rest) = when {
+            driveC != null && under(driveC) -> "C:" to path.removePrefix(driveC)
             under(aleksos) -> "D:" to path.removePrefix(aleksos)
             under(storage) -> "E:" to path.removePrefix(storage)
+            rootfs != null && under(rootfs) -> "Z:" to path.removePrefix(rootfs)
             else -> "Z:" to path
         }
         return drive + rest.replace('/', '\\').ifEmpty { "\\" }
+    }
+
+    fun driveC(context: Context) = File(EngineManager.rootfsDir(context), "home/xuser/.wine/drive_c")
+
+    /**
+     * Путь Windows («C:\Program Files\Игра\game.exe») → файл на телефоне. Регистр букв в Windows
+     * не важен, поэтому каждую папку ищем без учёта регистра. null — диск неизвестен.
+     */
+    fun fromWindowsPath(context: Context, winPath: String): File? {
+        val p = winPath.trim().trim('"')
+        if (p.length < 2 || p[1] != ':') return null
+        val letter = p[0].lowercaseChar()
+        val rootfs = EngineManager.rootfsDir(context)
+        val root: File = when (letter) {
+            'c' -> driveC(context)
+            'd' -> FileOps.aleksosDir
+            'e' -> FileOps.storageRoot
+            'z' -> rootfs
+            else -> {
+                val link = File(rootfs, "home/xuser/.wine/dosdevices/$letter:")
+                val target = runCatching { Os.readlink(link.path) }.getOrNull() ?: return null
+                if (target.startsWith("/")) File(target) else File(link.parentFile, target)
+            }
+        }
+        var cur = root
+        for (part in p.substring(2).split('\\', '/').filter { it.isNotEmpty() && it != "." }) {
+            val exact = File(cur, part)
+            cur = if (exact.exists()) exact
+            else cur.listFiles()?.firstOrNull { it.name.equals(part, ignoreCase = true) } ?: exact
+        }
+        // Z:\storage\emulated\0\… — это память телефона, а не папка внутри движка
+        if (letter == 'z' && !cur.exists()) {
+            val direct = File(p.substring(2).replace('\\', '/'))
+            if (direct.exists()) return direct
+        }
+        return cur
     }
 
     fun escape(arg: String) = arg.replace(" ", "\\ ")

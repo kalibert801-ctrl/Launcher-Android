@@ -349,11 +349,15 @@ class ExplorerActivity : Activity() {
         when {
             file.isDirectory -> navigate(file)
             file.extension.lowercase() in setOf("exe", "msi", "bat", "lnk") -> {
+                val setup = Regex("(?i)setup|install|установ").containsMatchIn(file.name) || file.extension.equals("msi", true)
                 AosDialog(this)
                     .title(file.name)
-                    .message("Это Windows-программа. Добавить её на рабочий стол AleksOS?")
-                    .button("Отмена")
-                    .button("Добавить", primary = true) {
+                    .message(if (setup) "Это установщик Windows-программы. После установки программа сама появится на рабочем столе AleksOS."
+                             else "Это Windows-программа. Запустить её или добавить на рабочий стол AleksOS?")
+                    .button(if (setup) "Установить" else "Запустить", primary = setup) {
+                        WindowsEngine.launchFile(this, file.nameWithoutExtension, file)
+                    }
+                    .button("На рабочий стол", primary = !setup) {
                         WindowsAppStore(this).add(file.nameWithoutExtension, android.net.Uri.fromFile(file).toString())
                         android.widget.Toast.makeText(this, "«${file.nameWithoutExtension}» добавлена на рабочий стол", android.widget.Toast.LENGTH_SHORT).show()
                     }
