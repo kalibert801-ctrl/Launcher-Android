@@ -34,7 +34,7 @@ object WindowsEngine {
             Module("VKD3D", "DirectX 12 → Vulkan", v["VKD3D"]),
             Module("Turnip", "Vulkan для Adreno", v["Turnip"]),
             Module("X-сервер", "окна программ", if (v.isNotEmpty()) "AleksOS" else null),
-            Module("PulseAudio", "звук", null),
+            Module("Звук", "ALSA → AAudio", if (v.isNotEmpty()) "AleksOS" else null),
         )
     }
 

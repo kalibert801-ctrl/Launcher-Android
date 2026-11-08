@@ -44,7 +44,23 @@ object WindowsComponents {
     )
 
     private fun prefs(context: Context) = context.getSharedPreferences("windows_components", Context.MODE_PRIVATE)
-    fun isInstalled(context: Context, id: String) = prefs(context).getBoolean(id, false)
+    fun isInstalled(context: Context, id: String): Boolean {
+        // то, что ставит установщик Microsoft/Wine, проверяем по настоящим файлам
+        val windows = File(WineRuntime.driveC(context), "windows")
+        return when (id) {
+            "winemono" -> File(windows, "mono/mono-2.0").isDirectory
+            "vcrun2022_x86" -> isNative(File(windows, "syswow64/msvcp140.dll"))
+            "vcrun2022_x64" -> isNative(File(windows, "system32/msvcp140.dll"))
+            else -> prefs(context).getBoolean(id, false)
+        }
+    }
+
+    /** Файл есть и это настоящая библиотека, а не встроенная заглушка Wine. */
+    private fun isNative(dll: File): Boolean {
+        if (!dll.isFile) return false
+        val head = runCatching { ByteArray(0x80).also { b -> dll.inputStream().use { it.read(b) } } }.getOrNull() ?: return false
+        return !String(head, Charsets.ISO_8859_1).contains("Wine builtin DLL")
+    }
 
     private val main = Handler(Looper.getMainLooper())
 
