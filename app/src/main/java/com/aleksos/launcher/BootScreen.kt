@@ -109,7 +109,10 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
 
         overlay.addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         // нажатие мимо кнопки — пропустить ожидание
-        overlay.setOnClickListener { if (waitingForBios) continueBoot() }
+        val skip = View.OnClickListener { if (waitingForBios) continueBoot() }
+        overlay.setOnClickListener(skip)
+        column.setOnClickListener(skip)
+        log.setOnClickListener(skip)
 
         log.addView(mono("Проверка оборудования…", 13f, GRAY))
         thread(name = "post") {
@@ -192,7 +195,6 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
     private fun continueBoot() {
         if (finished) return
         waitingForBios = false
-        overlay.setOnClickListener(null)
         if (settings.get(SystemSettings.SPLASH) == 1) {
             finish()
             return
