@@ -1,0 +1,61 @@
+name: Box64 (новая версия)
+
+# Собирает Box64 из исходников (github.com/ptitSeb/box64, MIT) под Linux ARM64 + glibc 2.31
+# (как в образе Windows Kernel: Debian bullseye) с оптимизацией под Snapdragon 8 Gen 2.
+# Новая версия переводит AVX/AVX2 — без них не запускаются многие новые игры.
+# Результат — Release box64-<версия> (prerelease); AleksOS ставит его из «Компонентов Windows».
+
+on:
+  push:
+    branches: [main]
+    paths: [components/BOX64]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Версия
+        run: echo "V=$(tr -d '[:space:]' < components/BOX64)" >> "$GITHUB_ENV"
+
+      - name: Собрать в Debian bullseye (ARM64)
+        run: |
+          set -e
+          mkdir -p out
+          docker run --rm -v "$PWD/out:/out" -e V="$V" arm64v8/debian:bullseye bash -c '
+            set -e
+            echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list.d/archive.list || true
+            apt-get update -qq || apt-get -o Acquire::Check-Valid-Until=false update -qq
+            apt-get install -y -qq git cmake python3 gcc g++ make >/dev/null
+            git clone --depth 1 --branch "v$V" https://github.com/ptitSeb/box64 /src
+            mkdir /src/build && cd /src/build
+            cmake .. -DSD8G2=1 -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+            make -j$(nproc)
+            strip box64
+            ./box64 --version || true
+            cp box64 /out/box64
+          '
+          mkdir -p pkg/usr/local/bin
+          cp out/box64 "pkg/usr/local/bin/box64-$V"
+          chmod 755 "pkg/usr/local/bin/box64-$V"
+          tar --format=gnu --owner=0 --group=0 -C pkg -czf "box64-$V.tar.gz" .
+          SIZE=$(stat -c %s "box64-$V.tar.gz"); SHA=$(sha256sum "box64-$V.tar.gz" | cut -d' ' -f1)
+          echo "{\"version\":\"$V\",\"url\":\"https://github.com/${{ github.repository }}/releases/download/box64-$V/box64-$V.tar.gz\",\"size\":$SIZE,\"sha256\":\"$SHA\"}" > "box64-$V.json"
+          cat "box64-$V.json"
+
+      - name: Опубликовать
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: box64-${{ env.V }}
+          name: Box64 ${{ env.V }} для AleksOS
+          body: Box64 ${{ env.V }} (MIT, github.com/ptitSeb/box64), собран для Windows Kernel AleksOS (glibc, Snapdragon 8 Gen 2).
+          files: |
+            box64-${{ env.V }}.tar.gz
+            box64-${{ env.V }}.json
+          prerelease: true
+          make_latest: false
