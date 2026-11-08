@@ -23,7 +23,7 @@ import java.util.zip.GZIPInputStream
 import kotlin.concurrent.thread
 
 /**
- * Ядро Windows: где лежит, установлен ли, какие версии модулей.
+ * Windows Kernel: где лежит, установлен ли, какие версии модулей.
  *
  * Ядро скачивается один раз пакетом engine-N из GitHub Releases и распаковывается
  * в личную папку приложения files/engine (запускать программы из общей памяти Android запрещает):
@@ -99,7 +99,7 @@ object EngineManager {
     internal fun runInstall(context: Context) {
         val download = File(context.cacheDir, "aleksos-engine-$PACKAGE.tar.gz")
         try {
-            publish(State(Stage.CHECKING, message = "Получаю сведения о ядре…"))
+            publish(State(Stage.CHECKING, message = "Получаю сведения о Windows Kernel…"))
             // для проверки на эмуляторе: адрес пакета можно подменить файлом (пишется только через adb)
             val override = File(context.filesDir, "engine-manifest-url.txt")
             val manifestUrl = if (override.isFile) override.readText().trim() else MANIFEST_URL
@@ -136,13 +136,13 @@ object EngineManager {
             staging.mkdirs()
             val counting = CountingInputStream(download.inputStream().buffered(1 shl 16))
             TarExtractor(staging) { cancelRequested }.extract(GZIPInputStream(counting, 1 shl 16)) {
-                publish(State(Stage.EXTRACTING, counting.count, size, "Распаковываю ядро…"))
+                publish(State(Stage.EXTRACTING, counting.count, size, "Распаковываю Windows Kernel…"))
             }
             if (cancelRequested) error("Установка отменена")
             FileOps.deleteRecursive(target)
             if (!staging.renameTo(target)) error("Не удалось завершить установку")
             download.delete()
-            publish(State(Stage.DONE, size, size, "Ядро установлено"))
+            publish(State(Stage.DONE, size, size, "Windows Kernel установлен"))
         } catch (e: Throwable) {
             FileOps.deleteRecursive(File(context.filesDir, "engine.new"))
             publish(State(Stage.FAILED, message = e.message ?: e.javaClass.simpleName))
@@ -179,7 +179,7 @@ object EngineManager {
                             val now = System.currentTimeMillis()
                             if (now - last > 250) {
                                 last = now
-                                publish(State(Stage.DOWNLOADING, file.length(), total, "Скачиваю ядро…"))
+                                publish(State(Stage.DOWNLOADING, file.length(), total, "Скачиваю Windows Kernel…"))
                             }
                         }
                     }
@@ -203,7 +203,7 @@ object EngineManager {
             setRequestProperty("User-Agent", "AleksOS-Launcher")
         }
         try {
-            if (conn.responseCode == 404) error("Пакет ядра ещё не опубликован на GitHub")
+            if (conn.responseCode == 404) error("Пакет Windows Kernel ещё не опубликован на GitHub")
             if (conn.responseCode != 200) error("Сервер ответил ${conn.responseCode}")
             return conn.inputStream.bufferedReader().use { it.readText() }
         } finally {
@@ -387,7 +387,7 @@ class EngineInstallService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(channelId, "Установка ядра Windows", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(channelId, "Установка Windows Kernel", NotificationManager.IMPORTANCE_LOW)
             )
         }
         startForeground(1, build("Подготовка…", 0, true))
@@ -401,7 +401,7 @@ class EngineInstallService : Service() {
             getSystemService(NotificationManager::class.java).cancel(1)
             val s = EngineManager.state
             getSystemService(NotificationManager::class.java).notify(2, build(
-                if (s.stage == EngineManager.Stage.DONE) "Ядро Windows установлено" else "Установка не удалась: ${s.message}",
+                if (s.stage == EngineManager.Stage.DONE) "Windows Kernel установлен" else "Установка не удалась: ${s.message}",
                 -1, false
             ))
             stopSelf()
@@ -423,7 +423,7 @@ class EngineInstallService : Service() {
         val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, channelId)
         else @Suppress("DEPRECATION") Notification.Builder(this)
         b.setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Ядро Windows")
+            .setContentTitle("Windows Kernel")
             .setContentText(text)
             .setContentIntent(open)
             .setOnlyAlertOnce(true)

@@ -199,7 +199,7 @@ class WineActivity : Activity() {
             environment = env
             env.startEnvironmentComponents()
             if (launcher.pid <= 0) {
-                main.post { showError("Не удалось запустить ядро (proot не стартовал).") }
+                main.post { showError("Не удалось запустить Windows Kernel (proot не стартовал).") }
                 return
             }
             // как только Wine нарисует первое окно — убираем надпись «Запуск…»
@@ -208,7 +208,7 @@ class WineActivity : Activity() {
                     if (closing || isFinishing) return
                     if (xServer.windowManager.rootWindow.children.isNotEmpty()) { status.visibility = View.GONE; return }
                     if (System.currentTimeMillis() - startedAt > 90_000) {
-                        status.text = "«$title» долго не открывается.\nЖурнал ядра: кнопка ☰ → «Журнал ядра»."
+                        status.text = "«$title» долго не открывается.\nЖурнал Windows Kernel: кнопка ☰ → «Журнал Windows Kernel»."
                         return
                     }
                     main.postDelayed(this, 500)
@@ -312,7 +312,7 @@ class WineActivity : Activity() {
         status.text = message
         AosDialog(this)
             .title(title)
-            .message("$message\n\nЖурнал ядра поможет найти причину.")
+            .message("$message\n\nЖурнал Windows Kernel поможет найти причину.")
             .button("Закрыть") { close() }
             .button("Журнал", primary = true) { showLog() }
             .show()
@@ -329,7 +329,7 @@ class WineActivity : Activity() {
         val scroll = ScrollView(this).apply { addView(text) }
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
         AosDialog(this)
-            .title("Журнал ядра")
+            .title("Журнал Windows Kernel")
             .view(scroll.apply { layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(360)) })
             .button("Закрыть", primary = true)
             .show()
@@ -374,7 +374,7 @@ class WineActivity : Activity() {
             "Клавиатура" to { toggleKeyboard() },
             "Esc" to { tapKey(KeyEvent.KEYCODE_ESCAPE) },
             "Enter" to { tapKey(KeyEvent.KEYCODE_ENTER) },
-            "Журнал ядра" to { showLog() },
+            "Журнал Windows Kernel" to { showLog() },
             "Закрыть программу" to { confirmClose() },
         )
         AosDialog(this).title(title).items(actions.map { it.first }) { actions[it].second() }.show()

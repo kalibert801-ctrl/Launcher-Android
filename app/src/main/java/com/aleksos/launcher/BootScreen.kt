@@ -116,19 +116,19 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
 
         log.addView(mono("Проверка оборудования…", 13f, GRAY))
         thread(name = "post") {
-            val hw = HardwareInfo.collect(activity).filter { it.label != "Ядро Windows" }
+            val hw = HardwareInfo.collect(activity).filter { it.label != "Windows Kernel" }
             val modules = WindowsEngine.modules(activity)
             activity.runOnUiThread {
                 if (finished) return@runOnUiThread
                 val lines = ArrayList<CharSequence>()
                 hw.forEach { lines += statusLine(it.label, it.value, if (it.ok) "OK" else "!!", it.ok) }
                 lines += ""
-                lines += "Модули ядра Windows:"
+                lines += "Модули Windows Kernel:"
                 modules.forEach {
                     lines += statusLine("  " + it.name, it.version ?: it.purpose, if (it.version != null) "OK" else "--", it.version != null)
                 }
                 lines += ""
-                lines += if (WindowsEngine.isAvailable(activity)) "Ядро Windows готово." else "Ядро Windows не установлено: Windows-программы недоступны."
+                lines += if (WindowsEngine.isAvailable(activity)) "Windows Kernel готов." else "Windows Kernel не установлен: Windows-программы недоступны."
                 printLines(log, lines) { startCountdown(countdown) }
             }
         }

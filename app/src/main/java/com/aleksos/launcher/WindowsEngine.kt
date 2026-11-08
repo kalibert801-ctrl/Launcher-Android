@@ -81,11 +81,11 @@ object WindowsEngine {
 
     private fun run(activity: Activity, title: String, command: String) {
         if (!isAvailable(activity)) {
-            offerInstall(activity, "Чтобы запускать «$title» и другие Windows-программы, нужно ядро Windows.")
+            offerInstall(activity, "Чтобы запускать «$title» и другие Windows-программы, нужен Windows Kernel.")
             return
         }
         if (EngineManager.isOutdated(activity)) {
-            offerInstall(activity, "Для запуска программ нужна новая версия ядра Windows (пакет ${EngineManager.PACKAGE}).", update = true)
+            offerInstall(activity, "Для запуска программ нужна новая версия Windows Kernel (пакет ${EngineManager.PACKAGE}).", update = true)
             return
         }
         // Окно Windows уже открыто — запускаем программу в нём (несколько программ одновременно)
@@ -117,7 +117,7 @@ object WindowsEngine {
             return
         }
         AosDialog(activity)
-            .title("Ядро Windows")
+            .title("Windows Kernel")
             .message(
                 "$reason\n\n" +
                     "• Скачать: около 430 МБ (лучше по Wi-Fi)\n" +
@@ -162,8 +162,8 @@ object WindowsEngine {
                 dialog?.dismiss()
                 if (!activity.isFinishing) {
                     if (s.stage == EngineManager.Stage.DONE) {
-                        AosDialog(activity).title("Ядро Windows")
-                            .message("Ядро установлено ✔\n\nВерсии модулей видны в BIOS и при загрузке AleksOS.")
+                        AosDialog(activity).title("Windows Kernel")
+                            .message("Windows Kernel установлен ✔\n\nВерсии модулей видны в BIOS и при загрузке AleksOS.")
                             .button("OK", primary = true).show()
                     } else {
                         AosDialog(activity).title("Установка не удалась")
@@ -176,7 +176,7 @@ object WindowsEngine {
             }
         }
         dialog = AosDialog(activity)
-            .title("Установка ядра Windows")
+            .title("Установка Windows Kernel")
             .view(box)
             .cancelable(false)
             .button("Отменить") { EngineManager.cancel(); EngineManager.removeListener(listener) }

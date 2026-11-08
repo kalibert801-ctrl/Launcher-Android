@@ -410,8 +410,8 @@ class MainActivity : Activity() {
         actions += "Обновить" to { reload() }
         actions += "Добавить Windows-программу" to { pickWindowsProgram() }
         if (!WindowsEngine.isAvailable(this)) {
-            actions += "Установить ядро Windows" to {
-                WindowsEngine.offerInstall(this, "Ядро нужно, чтобы запускать Windows-программы.")
+            actions += "Установить Windows Kernel" to {
+                WindowsEngine.offerInstall(this, "Windows Kernel нужен, чтобы запускать Windows-программы.")
             }
         }
         actions += "Открыть «Этот телефон»" to { ExplorerActivity.open(this) }
