@@ -42,6 +42,16 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
   НЕ встраивать в APK: скачивать один раз в личную папку приложения (`files/engine`), запускать
   оттуда (из /sdcard запуск запрещён). `AleksOS` на /sdcard = диск D: для Windows-программ.
   Стандартные программы Wine (Блокнот, WordPad, cmd, Сапёр…) — в «Пуск → Стандартные».
+- **targetSdk = 28** (как у Winlator): с targetSdk ≥ 29 SELinux запрещает исполнять файлы из папки
+  приложения, а Wine/Box64 живут там. Из-за этого доступ к файлам — обычное разрешение
+  READ/WRITE_EXTERNAL_STORAGE (не «доступ ко всем файлам»), окно рисуется под строкой состояния вручную.
+- Пакет движка собирает `.github/workflows/engine.yml` (при изменении `engine/VERSION` или вручную) →
+  Release `engine-N` (prerelease, не latest!): `aleksos-engine-N.tar.gz` + `engine-N.json` (размер, sha256).
+  Установщик — `EngineManager.kt` (докачка, проверка sha256, свой распаковщик tar, сервис с уведомлением).
+  Для проверки на эмуляторе адрес пакета подменяется файлом `files/engine-manifest-url.txt` (через `run-as`).
+- Этап 2, шаг 2 (следующий): proot (собрать из исходников Winlator Cmod `app/src/main/cpp/proot`
+  в `jniLibs` как libproot.so/libproot-loader.so), запуск `box64 wine` в rootfs, X-сервер на Java
+  (порт `com.winlator.xserver`), окно программы. Проверять можно только на телефоне (эмулятор x86).
 - Владелец смотрит работу через Remote Control с телефона: кнопки-вопросы и картинки там не видны,
   поэтому вопросы задавать обычным текстом.
 

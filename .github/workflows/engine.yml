@@ -1,0 +1,96 @@
+name: Пакет движка Windows
+
+# Собирает «пакет движка» AleksOS одним архивом .tar.gz и публикует его в Releases (тег engine-N).
+# Запускается вручную: вкладка Actions → «Пакет движка Windows» → Run workflow.
+# Компоненты берутся из Winlator Cmod (MIT): github.com/coffincolors/winlator
+
+on:
+  # Автоматически: когда меняется номер в engine/VERSION
+  push:
+    branches: [main]
+    paths: [engine/VERSION]
+  # Вручную: вкладка Actions → Run workflow
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    env:
+      RAW: https://raw.githubusercontent.com/coffincolors/winlator/main/app/src/main/assets
+      LFS: https://media.githubusercontent.com/media/coffincolors/winlator/main/app/src/main/assets
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Номер пакета
+        run: echo "N=$(tr -d '[:space:]' < engine/VERSION)" >> "$GITHUB_ENV"
+
+      - name: Скачать компоненты
+        run: |
+          set -e
+          which zstd pigz || (sudo apt-get update -qq && sudo apt-get install -y -qq zstd pigz)
+          curl -fL --retry 3 -o imagefs.txz   "$LFS/imagefs.txz"
+          curl -fL --retry 3 -o box64.tzst    "$RAW/box86_64/box64-0.2.9.tzst"
+          curl -fL --retry 3 -o turnip.tzst   "$RAW/graphics_driver/turnip-24.1.0.tzst"
+          curl -fL --retry 3 -o dxvk.tzst     "$RAW/dxwrapper/dxvk-2.3.1.tzst"
+          curl -fL --retry 3 -o vkd3d.tzst    "$RAW/dxwrapper/vkd3d-2.12.tzst"
+          curl -fL --retry 3 -o container.tzst "$RAW/container_pattern.tzst"
+          ls -la
+
+      - name: Собрать пакет
+        run: |
+          set -e
+          mkdir -p pack/rootfs pack/container pack/dxwrapper/dxvk pack/dxwrapper/vkd3d
+          tar -xJf imagefs.txz -C pack/rootfs
+          tar --zstd -xf box64.tzst  -C pack/rootfs
+          tar --zstd -xf turnip.tzst -C pack/rootfs
+          tar --zstd -xf container.tzst -C pack/container
+          tar --zstd -xf dxvk.tzst   -C pack/dxwrapper/dxvk
+          tar --zstd -xf vkd3d.tzst  -C pack/dxwrapper/vkd3d
+          cat > pack/engine.json <<EOF
+          {
+            "package": $N,
+            "modules": {
+              "Wine": "9.2",
+              "Box64": "0.2.9",
+              "DXVK": "2.3.1",
+              "VKD3D": "2.12",
+              "Turnip": "24.1.0"
+            }
+          }
+          EOF
+          du -sh pack/*
+          # GNU-формат tar: длинные имена через записи L/K (их понимает распаковщик AleksOS)
+          tar --format=gnu --owner=0 --group=0 -C pack -cf - . | pigz -6 > aleksos-engine-$N.tar.gz
+          SIZE=$(stat -c %s aleksos-engine-$N.tar.gz)
+          UNPACKED=$(du -sb pack | cut -f1)
+          SHA=$(sha256sum aleksos-engine-$N.tar.gz | cut -d' ' -f1)
+          cat > engine-$N.json <<EOF
+          {
+            "package": $N,
+            "url": "https://github.com/${{ github.repository }}/releases/download/engine-$N/aleksos-engine-$N.tar.gz",
+            "size": $SIZE,
+            "unpacked": $UNPACKED,
+            "sha256": "$SHA",
+            "modules": { "Wine": "9.2", "Box64": "0.2.9", "DXVK": "2.3.1", "VKD3D": "2.12", "Turnip": "24.1.0" }
+          }
+          EOF
+          cat engine-$N.json
+          ls -la aleksos-engine-$N.tar.gz
+
+      - name: Опубликовать в Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: engine-${{ env.N }}
+          name: Движок Windows для AleksOS, пакет ${{ env.N }}
+          body: |
+            Пакет движка Windows для AleksOS: Wine 9.2, Box64 0.2.9, Turnip 24.1.0, DXVK 2.3.1, VKD3D 2.12.
+            Устанавливается из самого AleksOS — скачивать вручную не нужно.
+            Компоненты: Winlator Cmod (MIT), Wine (LGPL), Box64 (MIT), Mesa Turnip (MIT), DXVK (zlib), VKD3D-Proton (LGPL).
+          files: |
+            aleksos-engine-${{ env.N }}.tar.gz
+            engine-${{ env.N }}.json
+          prerelease: true
+          make_latest: false

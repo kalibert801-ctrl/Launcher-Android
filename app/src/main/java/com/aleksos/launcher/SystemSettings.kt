@@ -112,7 +112,7 @@ object HardwareInfo {
         lines += Line("Экран", screen(context))
         lines += Line("Батарея", battery(context))
         lines += Line("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-        lines += Line("Движок Windows", if (WindowsEngine.isAvailable) "готов" else "не установлен", ok = WindowsEngine.isAvailable)
+        lines += Line("Движок Windows", if (WindowsEngine.isAvailable(context)) "готов" else "не установлен", ok = WindowsEngine.isAvailable(context))
         return lines
     }
 

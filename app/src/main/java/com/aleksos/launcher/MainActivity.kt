@@ -88,13 +88,41 @@ class MainActivity : Activity() {
         taskbarPins = DesktopPins(this, prefsName = "taskbar", defaultLimit = 4)
         startAdapter = ItemAdapter()
         setContentView(buildLayout())
+        drawUnderSystemBars()
         // «Включение» AleksOS: проверка оборудования → (BIOS) → заставка → рабочий стол
         if (savedInstanceState == null && SystemSettings(this).shouldShowBoot()) {
             boot = BootScreen(this, rootFrame) {
                 boot = null
+                askFileAccessOnce()
                 Updater.autoCheck(this)
             }.also { it.start() }
+        } else {
+            askFileAccessOnce()
         }
+    }
+
+    /** Обои видны и под строкой состояния, и под кнопками навигации. */
+    private fun drawUnderSystemBars() {
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+    }
+
+    /** Рабочий стол — это папка AleksOS/Рабочий стол, поэтому при первом запуске просим доступ к файлам. */
+    private fun askFileAccessOnce() {
+        if (fileAccessAsked || FileOps.hasAccess(this)) return
+        fileAccessAsked = true
+        FileOps.requestAccess(this)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        reload()
     }
 
     override fun onResume() {
@@ -353,6 +381,11 @@ class MainActivity : Activity() {
         if (FileOps.clipboard != null) actions += "Вставить" to { withFileAccess { FileMenu.paste(this, FileOps.desktopDir) { reload() } } }
         actions += "Обновить" to { reload() }
         actions += "Добавить Windows-программу" to { pickWindowsProgram() }
+        if (!WindowsEngine.isAvailable(this)) {
+            actions += "Установить движок Windows" to {
+                WindowsEngine.offerInstall(this, "Движок нужен, чтобы запускать Windows-программы.")
+            }
+        }
         actions += "Открыть «Этот телефон»" to { ExplorerActivity.open(this) }
         actions += "Сменить обои" to { safeStart(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Обои")) }
         actions += "Параметры экрана" to { safeStart(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }
@@ -686,6 +719,8 @@ class MainActivity : Activity() {
     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
 
     private companion object {
+        /** Спрашивали ли доступ к файлам в этом запуске (чтобы не надоедать). */
+        var fileAccessAsked = false
         const val REQUEST_PICK_EXE = 1001
         const val TAG_ICON = "icon"
         const val TAG_BADGE = "badge"

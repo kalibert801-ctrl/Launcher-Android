@@ -141,7 +141,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
         }
         content.addView(sectionTitle("Модули движка Windows"))
         content.addView(card().apply {
-            WindowsEngine.modules().forEach {
+            WindowsEngine.modules(activity).forEach {
                 addView(infoRow(it.name, (it.version ?: "не установлен") + "  ·  " + it.purpose, it.version != null))
             }
         })
@@ -154,7 +154,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
 
     private fun buildOptions(options: List<SystemSettings.Option>, title: String) {
         content.addView(sectionTitle(title))
-        if (options === SystemSettings.ENGINE_OPTIONS || options === SystemSettings.GRAPHICS_OPTIONS) {
+        if ((options === SystemSettings.ENGINE_OPTIONS || options === SystemSettings.GRAPHICS_OPTIONS) && !WindowsEngine.isAvailable(activity)) {
             content.addView(label("Движок ещё не установлен — настройки начнут действовать после его установки.", 12f, WARN).apply {
                 setPadding(dp(4), 0, dp(4), dp(10))
             })
@@ -177,10 +177,14 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
             android.widget.Toast.makeText(activity, "Значения по умолчанию загружены. Нажмите «Сохранить и выйти».", android.widget.Toast.LENGTH_LONG).show()
         })
         content.addView(sectionTitle("Движок Windows"))
-        content.addView(exitButton("Переустановить движок", enabled = WindowsEngine.isAvailable) {})
-        content.addView(exitButton("Сбросить диск C", enabled = WindowsEngine.isAvailable) {})
-        if (!WindowsEngine.isAvailable) {
-            content.addView(label("Недоступно: движок ещё не установлен.", 12f, DIM).apply { setPadding(dp(4), dp(4), 0, 0) })
+        val installed = WindowsEngine.isAvailable(activity)
+        content.addView(exitButton(if (installed) "Переустановить движок" else "Установить движок", primary = !installed) {
+            WindowsEngine.offerInstall(activity,
+                if (installed) "Движок будет скачан и установлен заново." else "Движок нужен, чтобы запускать Windows-программы.")
+        })
+        content.addView(exitButton("Сбросить диск C", enabled = installed) {})
+        if (!installed) {
+            content.addView(label("«Сбросить диск C» станет доступен после установки движка.", 12f, DIM).apply { setPadding(dp(4), dp(4), 0, 0) })
         }
     }
 

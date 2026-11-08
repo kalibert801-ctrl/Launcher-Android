@@ -22,12 +22,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Проводник «Этот телефон» и папки на рабочем столе -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Установка движка Windows в фоне (уведомление с прогрессом) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="true"
@@ -72,6 +70,11 @@
             android:authorities="com.aleksos.launcher.files"
             android:exported="false"
             android:grantUriPermissions="true" />
+
+        <!-- Скачивание и распаковка движка Windows -->
+        <service
+            android:name=".EngineInstallService"
+            android:exported="false" />
 
         <!-- Ответ системного установщика при самообновлении -->
         <receiver

@@ -10,7 +10,10 @@ android {
     defaultConfig {
         applicationId = "com.aleksos.launcher"
         minSdk = 26
-        targetSdk = 35
+        // targetSdk 28 — как у Winlator: Android 10+ запрещает приложениям с targetSdk ≥ 29
+        // запускать программы из своей папки, а движок Windows (Wine, Box64) работает именно так.
+        // Приложение при этом нормально работает на новых Android.
+        targetSdk = 28
         // Номер сборки GitHub Actions (build-N) = versionCode. По нему лаунчер
         // понимает, что на GitHub есть версия новее. Локальная сборка получает 1.
         val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1

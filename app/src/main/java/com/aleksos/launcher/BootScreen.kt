@@ -117,7 +117,7 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
         log.addView(mono("Проверка оборудования…", 13f, GRAY))
         thread(name = "post") {
             val hw = HardwareInfo.collect(activity).filter { it.label != "Движок Windows" }
-            val modules = WindowsEngine.modules()
+            val modules = WindowsEngine.modules(activity)
             activity.runOnUiThread {
                 if (finished) return@runOnUiThread
                 val lines = ArrayList<CharSequence>()
@@ -128,7 +128,7 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
                     lines += statusLine("  " + it.name, it.version ?: it.purpose, if (it.version != null) "OK" else "--", it.version != null)
                 }
                 lines += ""
-                lines += if (WindowsEngine.isAvailable) "Движок Windows готов." else "Движок Windows не установлен: Windows-программы недоступны."
+                lines += if (WindowsEngine.isAvailable(activity)) "Движок Windows готов." else "Движок Windows не установлен: Windows-программы недоступны."
                 printLines(log, lines) { startCountdown(countdown) }
             }
         }

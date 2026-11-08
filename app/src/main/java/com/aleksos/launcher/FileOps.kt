@@ -58,12 +58,23 @@ object FileOps {
 
     // ---------- Разрешение на доступ к файлам ----------
 
+    /** Новый режим доступа «ко всем файлам» есть только у приложений с targetSdk ≥ 30. */
+    private fun usesAllFilesAccess(context: Context) =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && context.applicationInfo.targetSdkVersion >= Build.VERSION_CODES.R
+
     fun hasAccess(context: Context): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager()
+        if (usesAllFilesAccess(context)) Environment.isExternalStorageManager()
         else context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
 
     /** Объясняет, зачем нужен доступ, и открывает нужный экран настроек. */
     fun requestAccess(activity: Activity) {
+        if (!usesAllFilesAccess(activity)) {
+            // обычное окно Android «Разрешить доступ к фото и файлам?»
+            activity.requestPermissions(
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE), 2001
+            )
+            return
+        }
         AosDialog(activity)
             .title("Доступ к файлам")
             .message(
