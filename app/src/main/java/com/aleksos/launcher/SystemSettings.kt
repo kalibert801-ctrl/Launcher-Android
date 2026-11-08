@@ -104,7 +104,7 @@ object HardwareInfo {
 
     fun collect(context: Context): List<Line> {
         val lines = ArrayList<Line>()
-        lines += Line("Устройство", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}")
+        lines += Line("Устройство", deviceName())
         lines += Line("Процессор", cpu())
         lines += Line("Оперативная память", ram(context))
         lines += Line("Видеокарта", gpu())
@@ -114,6 +114,14 @@ object HardwareInfo {
         lines += Line("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         lines += Line("Движок Windows", if (WindowsEngine.isAvailable(context)) "готов" else "не установлен", ok = WindowsEngine.isAvailable(context))
         return lines
+    }
+
+    /** «Motorola edge 40 pro», а не «Motorola motorola edge 40 pro». */
+    private fun deviceName(): String {
+        val maker = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+        val model = Build.MODEL
+        val full = if (model.startsWith(Build.MANUFACTURER, ignoreCase = true)) model else "$maker $model"
+        return full.replaceFirstChar { it.uppercase() }
     }
 
     private fun cpu(): String {
