@@ -370,7 +370,8 @@ class TarExtractor(private val dest: File, private val cancelled: () -> Boolean)
 class EngineInstallService : Service() {
 
     private val channelId = "engine_install"
-    private val listener: (EngineManager.State) -> Unit = { updateNotification(it) }
+    @Volatile private var finished = false
+    private val listener: (EngineManager.State) -> Unit = { if (!finished) updateNotification(it) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -384,8 +385,11 @@ class EngineInstallService : Service() {
         EngineManager.addListener(listener)
         thread(name = "engine-install") {
             EngineManager.runInstall(applicationContext)
+            finished = true
             EngineManager.removeListener(listener)
             stopForeground(true)
+            // убрать полоску установки: последнее обновление могло прийти уже после stopForeground
+            getSystemService(NotificationManager::class.java).cancel(1)
             val s = EngineManager.state
             getSystemService(NotificationManager::class.java).notify(2, build(
                 if (s.stage == EngineManager.Stage.DONE) "Движок Windows установлен" else "Установка не удалась: ${s.message}",
