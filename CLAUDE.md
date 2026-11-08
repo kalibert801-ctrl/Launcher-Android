@@ -73,6 +73,9 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
 2. 🔶 Движок: Wine + Box64 — Блокнот работает, русский есть. Звук (ALSAServerComponent из Winlator → AAudio, реестр Audio=alsa)
    и DXVK/VKD3D (BIOS «DirectX»: DLL в system32/syswow64, оригиналы в windows/aleksos-wine-dlls, WINEDLLOVERRIDES=n,b)
    добавлены, на телефоне не проверены. Осталось: остальные настройки BIOS (память, ядра, версия Windows).
+   Box64 0.4.4 (AVX2, нужен новым играм, напр. Vice City Stories): `.github/workflows/box64.yml` собирает
+   из исходников в Debian bullseye arm64 (glibc ≤ 2.29; -DARM64=1, т.к. gcc 10 не знает armv9-a для SD8G2) →
+   Release box64-0.4.4; ставится из «Компонентов Windows» в usr/local/bin/box64-0.4.4, BIOS «Версия Box64», BOX64_AVX=2.
 3. 🔶 Иконки из .exe (`ExeIcon.kt`), ярлыки .lnk (`LnkFile.kt`: LinkInfo и IDList), установка: setup.exe запускается
    как обычная программа, новые ярлыки из «Пуска» Wine (`InstalledPrograms.kt`) сами добавляются на стол.
    Не проверено на телефоне с настоящим установщиком.
