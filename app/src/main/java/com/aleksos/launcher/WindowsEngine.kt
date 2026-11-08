@@ -46,6 +46,7 @@ object WindowsEngine {
         Standard("Блокнот", "start /max notepad", "Простой текстовый редактор"),
         Standard("WordPad", "start /max wordpad", "Редактор документов"),
         Standard("Командная строка", "start /max wineconsole cmd", "cmd.exe"),
+        Standard("7-Zip", "start /max Z:\\opt\\apps\\7-Zip\\7zFM.exe", "Архиватор: открыть и распаковать .zip, .7z, .rar и установщики"),
         Standard("Проводник Windows", "start /max winefile", "Диски C:, D: (AleksOS), E: (телефон)"),
         Standard("Диспетчер задач", "taskmgr", "Запущенные Windows-программы"),
         Standard("Редактор реестра", "start /max regedit", "regedit.exe"),

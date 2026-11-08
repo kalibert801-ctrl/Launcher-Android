@@ -29,10 +29,14 @@ object WindowsComponents {
         val url: String, val size: Long, val sha256: String, val dlls: List<String>,
         /** Установщик Microsoft (запускается в Wine) вместо набора DLL. */
         val installerArgs: String? = null,
+        /** Расширение файла установщика: exe или msi. */
+        val ext: String = "exe",
     )
 
     /** Visual C++ 2015–2022: официальные установщики Microsoft. */
     private val VC_REDIST = listOf(
+        Component("winemono", ".NET Framework (Wine Mono)", "Нужен программам на .NET: лаунчерам игр, многим утилитам",
+            "https://dl.winehq.org/wine/wine-mono/8.1.0/wine-mono-8.1.0-x86.msi", 84905984L, "", emptyList(), "", "msi"),
         Component("vcrun2022_x86", "Visual C++ 2015–2022 (32-бит)", "Нужен большинству игр и программ после 2015 года",
             "https://aka.ms/vs/17/release/vc_redist.x86.exe", 14L shl 20, "", emptyList(), "/passive /norestart"),
         Component("vcrun2022_x64", "Visual C++ 2015–2022 (64-бит)", "То же для 64-битных программ",
@@ -103,7 +107,7 @@ object WindowsComponents {
             val result = runCatching {
                 val dir = if (c.installerArgs != null) File(FileOps.programsDir, "Компоненты").apply { mkdirs() }
                           else File(activity.cacheDir, "components").apply { mkdirs() }
-                val name = if (c.installerArgs != null) "${c.id}.exe" else "${c.id}.tar.gz"
+                val name = if (c.installerArgs != null) "${c.id}.${c.ext}" else "${c.id}.tar.gz"
                 val file = File(dir, name)
                 download(c.url, file) { done -> main.post { text.text = "Скачиваю… ${FileOps.formatSize(done)}" } }
                 if (c.sha256.isNotEmpty() && sha256(file) != c.sha256) { file.delete(); error("Файл повреждён при скачивании, попробуйте ещё раз") }
