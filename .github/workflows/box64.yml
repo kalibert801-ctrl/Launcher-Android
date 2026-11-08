@@ -32,6 +32,8 @@ jobs:
             set -e
             # bullseye уже в архиве Debian: берём пакеты только оттуда
             echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list
+            echo "deb http://archive.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list
+            echo "deb http://archive.debian.org/debian-security bullseye-security main" >> /etc/apt/sources.list
             rm -f /etc/apt/sources.list.d/* /etc/apt/sources.list.d/*.sources 2>/dev/null || true
             apt-get -o Acquire::Check-Valid-Until=false update
             apt-get install -y --no-install-recommends ca-certificates git python3 python3-pip python3-setuptools gcc g++ make
