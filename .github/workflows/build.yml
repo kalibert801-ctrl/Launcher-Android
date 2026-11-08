@@ -28,7 +28,21 @@ jobs:
         # glibc 2.31 — как в образе движка (Debian bullseye); файлы кладутся в APK (assets/locale)
         run: |
           mkdir -p app/src/main/assets/locale
-          docker run --rm -v "$PWD/app/src/main/assets/locale:/out" debian:bullseye sh -c "apt-get update -qq && apt-get install -y -qq locales > /dev/null && (localedef -i ru_RU -f UTF-8 /out/ru_RU.utf8 || true) && test -f /out/ru_RU.utf8/LC_CTYPE && chmod -R a+rX /out"
+          cat > /tmp/mkloc.sh <<'SH'
+          set -e
+          export DEBIAN_FRONTEND=noninteractive
+          if ! (apt-get update -qq && apt-get install -y -qq locales > /dev/null); then
+            # bullseye снят с поддержки — пакеты берём из архива Debian
+            rm -f /etc/apt/sources.list.d/*
+            echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list
+            apt-get -o Acquire::Check-Valid-Until=false update -qq
+            apt-get install -y -qq locales > /dev/null
+          fi
+          localedef -i ru_RU -f UTF-8 /out/ru_RU.utf8 || true
+          test -f /out/ru_RU.utf8/LC_CTYPE
+          chmod -R a+rX /out
+          SH
+          docker run --rm -v "$PWD/app/src/main/assets/locale:/out" -v /tmp/mkloc.sh:/mkloc.sh debian:bullseye sh /mkloc.sh
           ls -la app/src/main/assets/locale/ru_RU.utf8
 
       - name: Сборка
