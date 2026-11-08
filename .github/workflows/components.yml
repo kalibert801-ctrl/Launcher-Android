@@ -1,0 +1,91 @@
+name: Компоненты Windows
+
+# Собирает «Компоненты Windows» для AleksOS (библиотеки, которых нет в Wine) и публикует их
+# в Releases (тег components-N, prerelease). AleksOS скачивает каждый компонент по кнопке.
+#  - vcrun6: MFC42/MSVCP60 из официального распространяемого пакета Microsoft Visual C++ 6;
+#  - остальные: наборы DLL из Winlator Cmod (DirectX 9 d3dx, DirectSound, DirectMusic и т. д.).
+
+on:
+  push:
+    branches: [main]
+    paths: [components/VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    env:
+      RAW: https://raw.githubusercontent.com/coffincolors/winlator/main/app/src/main/assets/wincomponents
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Номер набора
+        run: echo "N=$(tr -d '[:space:]' < components/VERSION)" >> "$GITHUB_ENV"
+
+      - name: Собрать компоненты
+        run: |
+          set -e
+          which zstd cabextract || (sudo apt-get update -qq && sudo apt-get install -y -qq zstd cabextract)
+          mkdir -p out work
+          # --- Visual C++ 6 (MFC42) ---
+          curl -fL --retry 3 -o work/vc6.exe "https://download.microsoft.com/download/vc60pro/Update/2/W9XNT4/EN-US/VC6RedistSetup_deu.exe" \
+            || curl -fL --retry 3 -o work/vc6.exe "https://web.archive.org/web/2002/http://download.microsoft.com/download/vc60pro/Update/2/W9XNT4/EN-US/VC6RedistSetup_deu.exe"
+          echo "c2eb91d9c4448d50e46a32fecbcc3b418706d002beab9b5f4981de552098cee7  work/vc6.exe" | sha256sum -c -
+          cabextract -q -d work -F vcredist.exe work/vc6.exe
+          mkdir -p work/vc6dll && cabextract -q -d work/vc6dll work/vcredist.exe
+          mkdir -p pkg/vcrun6/syswow64
+          for dll in mfc42.dll mfc42u.dll msvcp60.dll msvcirt.dll; do
+            f=$(find work/vc6dll -iname "$dll" | head -1); cp "$f" "pkg/vcrun6/syswow64/$dll"
+          done
+          # --- компоненты Winlator ---
+          for c in direct3d directsound directmusic directshow directplay vcrun2010 wmdecoder; do
+            curl -fL --retry 3 -o work/$c.tzst "$RAW/$c.tzst"
+            mkdir -p pkg/$c && tar --zstd -xf work/$c.tzst -C pkg/$c
+          done
+          curl -fL --retry 3 -o work/wincomponents.json "$RAW/wincomponents.json"
+          for c in vcrun6 direct3d directsound directmusic directshow directplay vcrun2010 wmdecoder; do
+            tar --format=gnu --owner=0 --group=0 -C pkg/$c -czf out/$c.tar.gz .
+          done
+          python3 - <<'PY'
+          import json, hashlib, os
+          n = os.environ["N"]
+          win = json.load(open("work/wincomponents.json"))
+          win["vcrun6"] = ["mfc42", "mfc42u", "msvcp60", "msvcirt"]
+          info = {
+            "vcrun6": ("Visual C++ 6 (MFC42)", "Нужен старым программам и установщикам с оформлением"),
+            "vcrun2010": ("Visual C++ 2010", "Библиотеки msvcr100/msvcp100"),
+            "direct3d": ("DirectX 9–11 (d3dx)", "Дополнительные библиотеки DirectX для игр"),
+            "directsound": ("DirectSound", "Звук в старых играх"),
+            "directmusic": ("DirectMusic", "Музыка в старых играх"),
+            "directshow": ("DirectShow", "Видеоролики в играх и программах"),
+            "directplay": ("DirectPlay", "Сетевая игра в старых играх"),
+            "wmdecoder": ("Windows Media", "Воспроизведение WMV/WMA"),
+          }
+          items = []
+          for cid, (name, desc) in info.items():
+              path = f"out/{cid}.tar.gz"
+              data = open(path, "rb").read()
+              dlls = [d[:-4] if d.endswith(".dll") else d for d in win.get(cid, []) if not d.endswith(".exe")]
+              items.append({
+                  "id": cid, "name": name, "description": desc,
+                  "url": f"https://github.com/${{ github.repository }}/releases/download/components-{n}/{cid}.tar.gz",
+                  "size": len(data), "sha256": hashlib.sha256(data).hexdigest(), "dlls": dlls,
+              })
+          json.dump({"version": int(n), "components": items}, open(f"out/components-{n}.json", "w"), ensure_ascii=False, indent=1)
+          PY
+          ls -la out; cat out/components-$N.json | head -40
+
+      - name: Опубликовать в Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: components-${{ env.N }}
+          name: Компоненты Windows для AleksOS, набор ${{ env.N }}
+          body: |
+            Дополнительные библиотеки Windows для AleksOS (ставятся из «Пуск → Компоненты Windows»).
+            Visual C++ 6 — распространяемый пакет Microsoft; остальные наборы — из Winlator Cmod (MIT).
+          files: out/*
+          prerelease: true
+          make_latest: false
