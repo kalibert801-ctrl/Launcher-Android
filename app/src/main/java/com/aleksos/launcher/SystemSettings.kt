@@ -61,6 +61,8 @@ class SystemSettings(context: Context) {
             listOf("Все", "Только быстрые", "4 ядра", "2 ядра"), 0)
         val BOX64 = Option("box64", "Режим Box64", "Быстрее — для игр, стабильнее — если программа вылетает",
             listOf("Быстрее", "Сбалансированно", "Стабильнее"), 1)
+        val BOX64_VERSION = Option("box64ver", "Версия Box64", "Новая переводит AVX2 — нужна новым играм (ставится в «Компонентах Windows»)",
+            listOf("0.2.9 (стабильная)", "0.4.4 (новые игры, AVX2)"), 0)
         val WINDOWS_VERSION = Option("winver", "Версия Windows", "Какой Windows притворяется Wine",
             listOf("Windows XP", "Windows 7", "Windows 10"), 2)
 
@@ -82,7 +84,7 @@ class SystemSettings(context: Context) {
         val SPLASH = Option("splash", "Заставка AleksOS", "Картинка загрузки после проверки",
             listOf("Включена", "Выключена"), 0)
 
-        val ENGINE_OPTIONS = listOf(MEMORY, CPU_CORES, BOX64, WINDOWS_VERSION)
+        val ENGINE_OPTIONS = listOf(MEMORY, CPU_CORES, BOX64, BOX64_VERSION, WINDOWS_VERSION)
         val GRAPHICS_OPTIONS = listOf(GPU_DRIVER, DIRECTX, RESOLUTION, FPS_LIMIT)
         val BOOT_OPTIONS = listOf(BOOT_MODE, BIOS_WAIT, SPLASH)
         val ALL = ENGINE_OPTIONS + GRAPHICS_OPTIONS + BOOT_OPTIONS

@@ -31,6 +31,8 @@ object WindowsComponents {
         val installerArgs: String? = null,
         /** Расширение файла установщика: exe или msi. */
         val ext: String = "exe",
+        /** Куда распаковывать набор: в папку Windows (по умолчанию) или в корень Linux-окружения. */
+        val intoRootfs: Boolean = false,
     )
 
     /** Visual C++ 2015–2022: официальные установщики Microsoft. */
@@ -49,6 +51,7 @@ object WindowsComponents {
         val windows = File(WineRuntime.driveC(context), "windows")
         return when (id) {
             "winemono" -> File(windows, "mono/mono-2.0").isDirectory
+            "box64new" -> WineRuntime.box64NewInstalled(context)
             "vcrun2022_x86" -> isNative(File(windows, "syswow64/msvcp140.dll"))
             "vcrun2022_x64" -> isNative(File(windows, "system32/msvcp140.dll"))
             else -> prefs(context).getBoolean(id, false)
@@ -129,8 +132,9 @@ object WindowsComponents {
                 if (c.sha256.isNotEmpty() && sha256(file) != c.sha256) { file.delete(); error("Файл повреждён при скачивании, попробуйте ещё раз") }
                 if (c.installerArgs == null) {
                     main.post { text.text = "Устанавливаю…" }
-                    val windows = File(WineRuntime.driveC(activity), "windows")
-                    GZIPInputStream(file.inputStream().buffered()).use { TarExtractor(windows) { false }.extract(it) {} }
+                    val target = if (c.intoRootfs) EngineManager.rootfsDir(activity) else File(WineRuntime.driveC(activity), "windows")
+                    GZIPInputStream(file.inputStream().buffered()).use { TarExtractor(target) { false }.extract(it) {} }
+                    if (c.id == "box64new") SystemSettings(activity).saveAll(mapOf(SystemSettings.BOX64_VERSION.key to 1))
                     file.delete()
                     setNativeOverrides(activity, c.dlls)
                     prefs(activity).edit().putBoolean(c.id, true).apply()
@@ -145,7 +149,9 @@ object WindowsComponents {
                         prefs(activity).edit().putBoolean(c.id, true).apply()
                         WindowsEngine.runFile(activity, c.name, file, c.installerArgs)
                     } else {
-                        AosDialog(activity).title(c.name).message("Компонент установлен ✔").button("OK", primary = true).show()
+                        AosDialog(activity).title(c.name).message(if (c.id == "box64new")
+                            "Box64 ${WineRuntime.BOX64_NEW} установлен ✔\n\nОн уже включён. Вернуть старую версию: BIOS → Kernel → «Версия Box64»."
+                            else "Компонент установлен ✔").button("OK", primary = true).show()
                     }
                 }.onFailure {
                     AosDialog(activity).title(c.name)
@@ -156,7 +162,17 @@ object WindowsComponents {
         }
     }
 
-    private fun loadList(): List<Component> {
+    private fun loadList(): List<Component> = loadBox64() + loadDlls()
+
+    /** Новый Box64 (собирает .github/workflows/box64.yml, Release box64-<версия>). */
+    private fun loadBox64(): List<Component> = runCatching {
+        val v = WineRuntime.BOX64_NEW
+        val o = JSONObject(httpText("$REPO/box64-$v/box64-$v.json"))
+        listOf(Component("box64new", "Box64 $v (новые игры)", "Переводит AVX/AVX2 — без этого не запускаются многие игры после 2013 года",
+            o.getString("url"), o.getLong("size"), o.getString("sha256"), emptyList(), intoRootfs = true))
+    }.getOrDefault(emptyList())
+
+    private fun loadDlls(): List<Component> {
         val json = JSONObject(httpText(MANIFEST))
         val arr = json.getJSONArray("components")
         return (0 until arr.length()).map { i ->

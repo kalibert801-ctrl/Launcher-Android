@@ -29,7 +29,7 @@ object WindowsEngine {
         val v = EngineManager.installedModules(context)
         return listOf(
             Module("Wine", "Windows API", v["Wine"]),
-            Module("Box64", "x86-64 → ARM64", v["Box64"]),
+            Module("Box64", "x86-64 → ARM64", WineRuntime.box64Version(context) ?: v["Box64"]),
             Module("DXVK", "DirectX 9–11 → Vulkan", v["DXVK"]),
             Module("VKD3D", "DirectX 12 → Vulkan", v["VKD3D"]),
             Module("Turnip", "Vulkan для Adreno", v["Turnip"]),

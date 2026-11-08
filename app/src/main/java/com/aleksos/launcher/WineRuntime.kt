@@ -76,6 +76,7 @@ object WineRuntime {
 
         installRussianLocale(context, rootfs)
         runCatching { applyDirectX(context, rootfs) }.onFailure { writeLog("DirectX: $it") }
+        runCatching { applyBox64Version(context, rootfs) }.onFailure { writeLog("Box64: $it") }
         runCatching { setAudioDriver(rootfs) }.onFailure { writeLog("Звук: $it") }
 
         File(rootfs, "tmp").mkdirs()
@@ -169,6 +170,31 @@ object WineRuntime {
         reg.writeText(updated)
     }
 
+    // ---------- Версия Box64 (BIOS → Kernel → «Версия Box64») ----------
+
+    const val BOX64_NEW = "0.4.4"
+
+    fun box64NewInstalled(context: Context) =
+        File(EngineManager.rootfsDir(context), "usr/local/bin/box64-$BOX64_NEW").isFile
+
+    /** Какая версия Box64 будет работать: новая, если выбрана в BIOS и установлена. */
+    fun box64Version(context: Context): String? =
+        if (SystemSettings(context).get(SystemSettings.BOX64_VERSION) == 1 && box64NewInstalled(context)) BOX64_NEW else null
+
+    /** Подменяем usr/local/bin/box64 нужной версией; исходная 0.2.9 сохраняется как box64-0.2.9. */
+    private fun applyBox64Version(context: Context, rootfs: File) {
+        val bin = File(rootfs, "usr/local/bin")
+        val current = File(bin, "box64")
+        val old = File(bin, "box64-0.2.9")
+        if (!old.isFile && current.isFile) current.copyTo(old)
+        val want = if (box64Version(context) != null) File(bin, "box64-$BOX64_NEW") else old
+        if (!want.isFile) return
+        if (current.isFile && current.length() == want.length()) return
+        want.copyTo(current, overwrite = true)
+        Os.chmod(current.path, 493)
+        writeLog("Box64: ${if (want == old) "0.2.9" else BOX64_NEW}")
+    }
+
     // ---------- DirectX для игр: DXVK (DirectX 9–11 → Vulkan) и VKD3D (DirectX 12 → Vulkan) ----------
 
     private val DX_DLLS = listOf("d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll", "d3d12.dll", "d3d12core.dll")
@@ -258,6 +284,8 @@ object WineRuntime {
         env.put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
         env.put("vblank_mode", "0")
         directXEnv(context, env)
+        // новая версия Box64: включаем перевод AVX/AVX2
+        if (box64Version(context) != null) env.put("BOX64_AVX", "2")
         return env
     }
 
