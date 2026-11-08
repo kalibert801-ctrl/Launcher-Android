@@ -49,7 +49,7 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
   Release `engine-N` (prerelease, не latest!): `aleksos-engine-N.tar.gz` + `engine-N.json` (размер, sha256).
   Установщик — `EngineManager.kt` (докачка, проверка sha256, свой распаковщик tar, сервис с уведомлением).
   Для проверки на эмуляторе адрес пакета подменяется файлом `files/engine-manifest-url.txt` (через `run-as`).
-- Этап 2, шаг 2 (сделан, ждёт проверки на телефоне): код Winlator Cmod (ветка `main`, proot-версия!)
+- Этап 2, шаг 2 (✅ 08.11.2026 Блокнот запустился на телефоне, build-15 + engine-2): код Winlator Cmod (ветка `main`, proot-версия!)
   перенесён в `com.winlator.*` (X-сервер, renderer, xconnector, sysvshm) + `app/src/main/cpp`
   (proot, libproot-loader как статическая программа без libc, libwinlator). Окно программы —
   `WineActivity` (своя задача), запуск: proot → box64 → `wine explorer /desktop=shell,WxH <cmd>`.
@@ -63,7 +63,7 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
 
 ## Этапы
 1. ✅ Лаунчер: Android-приложения, поиск, плитка «Добавить .exe», Windows-программы с меткой WIN.
-2. 🔶 Движок: Wine + Box64, запуск одного `.exe` из лаунчера (сделано, проверяется на телефоне).
+2. 🔶 Движок: Wine + Box64 — Блокнот работает. Осталось: русский язык Wine и кириллица с клавиатуры, звук, DXVK/VKD3D для игр, настройки BIOS.
 3. ⬜ Установка через `setup.exe`, автоматические иконки (извлекать из ресурсов .exe/.lnk).
 4. ⬜ Отдельное окно Android на каждую Windows-программу.
 5. ⬜ Интеграция: общие папки телефона как диск D:, общий буфер обмена, «открыть с помощью».
