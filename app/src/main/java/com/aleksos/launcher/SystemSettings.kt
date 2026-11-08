@@ -15,7 +15,7 @@ import java.io.File
 
 /**
  * Настройки «BIOS» AleksOS. Хранятся в SharedPreferences.
- * Параметры движка (память, ядра, графика…) будут использоваться, когда подключим Wine.
+ * Параметры ядра (память, ядра, графика…) будут использоваться, когда подключим Wine.
  */
 class SystemSettings(context: Context) {
 
@@ -54,8 +54,8 @@ class SystemSettings(context: Context) {
     companion object {
         private const val KEY_LAST_BOOT = "last_boot"
 
-        // Движок
-        val MEMORY = Option("memory", "Память для Windows-программ", "Сколько ОЗУ может занять движок",
+        // Ядро
+        val MEMORY = Option("memory", "Память для Windows-программ", "Сколько ОЗУ может занять ядро",
             listOf("2 ГБ", "4 ГБ", "6 ГБ", "8 ГБ"), 1)
         val CPU_CORES = Option("cores", "Ядра процессора", "Сколько ядер отдавать Windows-программам",
             listOf("Все", "Только быстрые", "4 ядра", "2 ядра"), 0)
@@ -112,7 +112,7 @@ object HardwareInfo {
         lines += Line("Экран", screen(context))
         lines += Line("Батарея", battery(context))
         lines += Line("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-        lines += Line("Движок Windows", if (WindowsEngine.isAvailable(context)) "готов" else "не установлен", ok = WindowsEngine.isAvailable(context))
+        lines += Line("Ядро Windows", if (WindowsEngine.isAvailable(context)) "готово" else "не установлено", ok = WindowsEngine.isAvailable(context))
         return lines
     }
 

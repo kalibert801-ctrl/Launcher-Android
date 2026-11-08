@@ -1,5 +1,6 @@
 package com.aleksos.launcher
 
+import com.winlator.winhandler.WinHandler
 import android.app.Activity
 import android.app.Dialog
 import android.content.Context
@@ -10,17 +11,17 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * Точка входа в движок запуска Windows-программ (Wine + Box64 + DXVK/Turnip).
+ * Точка входа в ядро запуска Windows-программ (Wine + Box64 + DXVK/Turnip).
  *
- * Этап 2, шаг 1: установка движка (скачивание и распаковка — EngineManager).
+ * Этап 2, шаг 1: установка ядра (скачивание и распаковка — EngineManager).
  * Шаг 2 (следующий): запуск Wine через proot + Box64 и X-сервер для окон программ.
  */
 object WindowsEngine {
 
-    /** Установлен ли движок. */
+    /** Установлен ли ядро. */
     fun isAvailable(context: Context): Boolean = EngineManager.isInstalled(context)
 
-    /** Модуль движка: название, зачем нужен и установленная версия (null — не установлен). */
+    /** Модуль ядра: название, зачем нужен и установленная версия (null — не установлен). */
     class Module(val name: String, val purpose: String, val version: String?)
 
     /** Список модулей для экрана загрузки и BIOS. */
@@ -63,10 +64,16 @@ object WindowsEngine {
                 .button("OK", primary = true).show()
             return
         }
-        val dir = WineRuntime.escape(WineRuntime.toWindowsPath(file.parentFile ?: file))
+        val parent = file.parentFile ?: file
         val name = WineRuntime.escape(file.name)
         // start /d — запуск из папки программы (так многие игры находят свои файлы), /max — на весь экран
-        run(activity, app.name, "start /max /d $dir $name")
+        var command = "start /max /d ${WineRuntime.escape(WineRuntime.toWindowsPath(parent))} $name"
+        val (exe, params) = WineRuntime.toExec(command)
+        if (!WinHandler.fits(exe, params) && EngineManager.isInstalled(activity)) {
+            // длинный путь: папке программы — короткая буква диска
+            command = "start /max /d ${WineRuntime.mapShortDrive(activity, parent)}\\. $name"
+        }
+        run(activity, app.name, command)
     }
 
     /** Запустить стандартную программу Wine. */
@@ -74,11 +81,11 @@ object WindowsEngine {
 
     private fun run(activity: Activity, title: String, command: String) {
         if (!isAvailable(activity)) {
-            offerInstall(activity, "Чтобы запускать «$title» и другие Windows-программы, нужен движок Windows.")
+            offerInstall(activity, "Чтобы запускать «$title» и другие Windows-программы, нужно ядро Windows.")
             return
         }
         if (EngineManager.isOutdated(activity)) {
-            offerInstall(activity, "Для запуска программ нужна новая версия движка Windows (пакет ${EngineManager.PACKAGE}).", update = true)
+            offerInstall(activity, "Для запуска программ нужна новая версия ядра Windows (пакет ${EngineManager.PACKAGE}).", update = true)
             return
         }
         // Окно Windows уже открыто — запускаем программу в нём (несколько программ одновременно)
@@ -103,14 +110,14 @@ object WindowsEngine {
         return null
     }
 
-    /** Предложить установить движок (или показать ход установки, если она уже идёт). */
+    /** Предложить установить ядро (или показать ход установки, если она уже идёт). */
     fun offerInstall(activity: Activity, reason: String, update: Boolean = false) {
         if (EngineManager.isRunning) {
             showProgress(activity)
             return
         }
         AosDialog(activity)
-            .title("Движок Windows")
+            .title("Ядро Windows")
             .message(
                 "$reason\n\n" +
                     "• Скачать: около 430 МБ (лучше по Wi-Fi)\n" +
@@ -155,8 +162,8 @@ object WindowsEngine {
                 dialog?.dismiss()
                 if (!activity.isFinishing) {
                     if (s.stage == EngineManager.Stage.DONE) {
-                        AosDialog(activity).title("Движок Windows")
-                            .message("Движок установлен ✔\n\nВерсии модулей видны в BIOS и при загрузке AleksOS.")
+                        AosDialog(activity).title("Ядро Windows")
+                            .message("Ядро установлено ✔\n\nВерсии модулей видны в BIOS и при загрузке AleksOS.")
                             .button("OK", primary = true).show()
                     } else {
                         AosDialog(activity).title("Установка не удалась")
@@ -169,7 +176,7 @@ object WindowsEngine {
             }
         }
         dialog = AosDialog(activity)
-            .title("Установка движка Windows")
+            .title("Установка ядра Windows")
             .view(box)
             .cancelable(false)
             .button("Отменить") { EngineManager.cancel(); EngineManager.removeListener(listener) }

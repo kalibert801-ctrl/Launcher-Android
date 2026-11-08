@@ -1,5 +1,7 @@
 package com.aleksos.launcher
 
+import com.winlator.winhandler.WinHandler
+import java.io.File
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -174,14 +176,30 @@ class WineActivity : Activity() {
             env.addComponent(XServerComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.XSERVER_PATH)))
             val launcher = GuestProgramLauncherComponent()
             desktopArg = "/desktop=shell,${screen.first}x${screen.second}"
-            launcher.setGuestExecutable("wine explorer $desktopArg $command")
+            val handlerExe = File(imageFs.rootDir, "home/xuser/.wine/drive_c/windows/winhandler.exe")
+            // winhandler.exe живёт внутри Wine и по команде из AleksOS запускает программы —
+            // так все программы работают в одном Wine (отдельные процессы Wine не запускались)
+            useHandler = handlerExe.isFile && execInWine(command)
+            if (useHandler) {
+                xServer.winHandler.start()
+                launcher.setGuestExecutable("wine explorer $desktopArg winhandler.exe rundll32")
+                main.postDelayed({
+                    if (!closing && !isFinishing && !xServer.winHandler.isReady) {
+                        WineRuntime.writeLog("winhandler не ответил — запуск отдельным процессом")
+                        useHandler = false
+                        launchProcess(title, command)
+                    }
+                }, 40_000)
+            } else {
+                launcher.setGuestExecutable("wine explorer $desktopArg $command")
+            }
             configure(launcher)
             launcher.setTerminationCallback { code -> main.post { onWineExit(code) } }
             env.addComponent(launcher)
             environment = env
             env.startEnvironmentComponents()
             if (launcher.pid <= 0) {
-                main.post { showError("Не удалось запустить движок (proot не стартовал).") }
+                main.post { showError("Не удалось запустить ядро (proot не стартовал).") }
                 return
             }
             // как только Wine нарисует первое окно — убираем надпись «Запуск…»
@@ -190,7 +208,7 @@ class WineActivity : Activity() {
                     if (closing || isFinishing) return
                     if (xServer.windowManager.rootWindow.children.isNotEmpty()) { status.visibility = View.GONE; return }
                     if (System.currentTimeMillis() - startedAt > 90_000) {
-                        status.text = "«$title» долго не открывается.\nЖурнал движка: кнопка ☰ → «Журнал движка»."
+                        status.text = "«$title» долго не открывается.\nЖурнал ядра: кнопка ☰ → «Журнал ядра»."
                         return
                     }
                     main.postDelayed(this, 500)
@@ -216,6 +234,25 @@ class WineActivity : Activity() {
         title = newTitle
         titleView?.text = newTitle
         WineRuntime.writeLog("=== AleksOS: ещё одна программа — $newTitle: $command ===")
+        if (useHandler) {
+            if (!execInWine(command)) launchProcess(newTitle, command)
+        } else launchProcess(newTitle, command)
+    }
+
+    @Volatile private var useHandler = false
+
+    /** Передать команду winhandler.exe внутри Wine. false — команда слишком длинная. */
+    private fun execInWine(command: String): Boolean {
+        val (exe, params) = WineRuntime.toExec(command)
+        if (exe.isEmpty() || !WinHandler.fits(exe, params)) return false
+        WineRuntime.writeLog("winhandler: $exe $params")
+        xServer.winHandler.exec(exe, params)
+        return true
+    }
+
+    /** Запуск отдельным процессом Wine (запасной путь). */
+    private fun launchProcess(newTitle: String, command: String) {
+        val env = environment ?: return
         thread(name = "wine-extra") {
             runCatching {
                 val extra = GuestProgramLauncherComponent()
@@ -275,7 +312,7 @@ class WineActivity : Activity() {
         status.text = message
         AosDialog(this)
             .title(title)
-            .message("$message\n\nЖурнал движка поможет найти причину.")
+            .message("$message\n\nЖурнал ядра поможет найти причину.")
             .button("Закрыть") { close() }
             .button("Журнал", primary = true) { showLog() }
             .show()
@@ -292,7 +329,7 @@ class WineActivity : Activity() {
         val scroll = ScrollView(this).apply { addView(text) }
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
         AosDialog(this)
-            .title("Журнал движка")
+            .title("Журнал ядра")
             .view(scroll.apply { layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(360)) })
             .button("Закрыть", primary = true)
             .show()
@@ -337,7 +374,7 @@ class WineActivity : Activity() {
             "Клавиатура" to { toggleKeyboard() },
             "Esc" to { tapKey(KeyEvent.KEYCODE_ESCAPE) },
             "Enter" to { tapKey(KeyEvent.KEYCODE_ENTER) },
-            "Журнал движка" to { showLog() },
+            "Журнал ядра" to { showLog() },
             "Закрыть программу" to { confirmClose() },
         )
         AosDialog(this).title(title).items(actions.map { it.first }) { actions[it].second() }.show()
@@ -360,6 +397,7 @@ class WineActivity : Activity() {
     }
 
     private fun stopAll() {
+        runCatching { xServer.winHandler.stop() }
         synchronized(extras) { extras.forEach { runCatching { it.stop() } }; extras.clear() }
         runCatching { environment?.stopEnvironmentComponents() }
         if (instance === this) instance = null

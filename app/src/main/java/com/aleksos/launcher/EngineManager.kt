@@ -23,9 +23,9 @@ import java.util.zip.GZIPInputStream
 import kotlin.concurrent.thread
 
 /**
- * Движок Windows: где лежит, установлен ли, какие версии модулей.
+ * Ядро Windows: где лежит, установлен ли, какие версии модулей.
  *
- * Движок скачивается один раз пакетом engine-N из GitHub Releases и распаковывается
+ * Ядро скачивается один раз пакетом engine-N из GitHub Releases и распаковывается
  * в личную папку приложения files/engine (запускать программы из общей памяти Android запрещает):
  *   engine/rootfs     — Linux-окружение с Wine и Box64
  *   engine/container  — заготовка «диска C» (папка .wine)
@@ -34,8 +34,8 @@ import kotlin.concurrent.thread
  */
 object EngineManager {
 
-    /** Какой пакет движка нужен этой версии AleksOS. */
-    /** Номер пакета движка, который нужен этой версии AleksOS (engine/VERSION). */
+    /** Какой пакет ядра нужен этой версии AleksOS. */
+    /** Номер пакета ядра, который нужен этой версии AleksOS (engine/VERSION). */
     const val PACKAGE = 2
     private const val MANIFEST_URL =
         "https://github.com/kalibert801-ctrl/Launcher-Android/releases/download/engine-$PACKAGE/engine-$PACKAGE.json"
@@ -52,7 +52,7 @@ object EngineManager {
         JSONObject(installedManifest(context).readText()).optInt("package", 0)
     }.getOrDefault(0)
 
-    /** Установлен старый пакет: нужно обновить движок. */
+    /** Установлен старый пакет: нужно обновить ядро. */
     fun isOutdated(context: Context): Boolean = isInstalled(context) && installedPackage(context) < PACKAGE
 
     /** Версии установленных модулей (имя → версия). */
@@ -99,7 +99,7 @@ object EngineManager {
     internal fun runInstall(context: Context) {
         val download = File(context.cacheDir, "aleksos-engine-$PACKAGE.tar.gz")
         try {
-            publish(State(Stage.CHECKING, message = "Получаю сведения о движке…"))
+            publish(State(Stage.CHECKING, message = "Получаю сведения о ядре…"))
             // для проверки на эмуляторе: адрес пакета можно подменить файлом (пишется только через adb)
             val override = File(context.filesDir, "engine-manifest-url.txt")
             val manifestUrl = if (override.isFile) override.readText().trim() else MANIFEST_URL
@@ -109,7 +109,7 @@ object EngineManager {
             val unpacked = manifest.optLong("unpacked", size * 3)
             val sha256 = manifest.optString("sha256")
 
-            // Хватит ли места: архив + распакованный движок + запас 300 МБ
+            // Хватит ли места: архив + распакованный ядро + запас 300 МБ
             val free = StatFs(context.filesDir.path).availableBytes
             val need = (size - download.length().coerceAtMost(size)) + unpacked + 300_000_000L
             if (free < need) {
@@ -136,13 +136,13 @@ object EngineManager {
             staging.mkdirs()
             val counting = CountingInputStream(download.inputStream().buffered(1 shl 16))
             TarExtractor(staging) { cancelRequested }.extract(GZIPInputStream(counting, 1 shl 16)) {
-                publish(State(Stage.EXTRACTING, counting.count, size, "Распаковываю движок…"))
+                publish(State(Stage.EXTRACTING, counting.count, size, "Распаковываю ядро…"))
             }
             if (cancelRequested) error("Установка отменена")
             FileOps.deleteRecursive(target)
             if (!staging.renameTo(target)) error("Не удалось завершить установку")
             download.delete()
-            publish(State(Stage.DONE, size, size, "Движок установлен"))
+            publish(State(Stage.DONE, size, size, "Ядро установлено"))
         } catch (e: Throwable) {
             FileOps.deleteRecursive(File(context.filesDir, "engine.new"))
             publish(State(Stage.FAILED, message = e.message ?: e.javaClass.simpleName))
@@ -179,7 +179,7 @@ object EngineManager {
                             val now = System.currentTimeMillis()
                             if (now - last > 250) {
                                 last = now
-                                publish(State(Stage.DOWNLOADING, file.length(), total, "Скачиваю движок…"))
+                                publish(State(Stage.DOWNLOADING, file.length(), total, "Скачиваю ядро…"))
                             }
                         }
                     }
@@ -203,7 +203,7 @@ object EngineManager {
             setRequestProperty("User-Agent", "AleksOS-Launcher")
         }
         try {
-            if (conn.responseCode == 404) error("Пакет движка ещё не опубликован на GitHub")
+            if (conn.responseCode == 404) error("Пакет ядра ещё не опубликован на GitHub")
             if (conn.responseCode != 200) error("Сервер ответил ${conn.responseCode}")
             return conn.inputStream.bufferedReader().use { it.readText() }
         } finally {
@@ -273,7 +273,7 @@ class TarExtractor(private val dest: File, private val cancelled: () -> Boolean)
 
             name = name.removePrefix("./").trimEnd('/')
             if (name.isEmpty() || name == ".") { skip(input, padded(size)); continue }
-            // защита: ничего не писать за пределы папки движка
+            // защита: ничего не писать за пределы папки ядра
             if (name.startsWith("/") || name.split('/').any { it == ".." }) { skip(input, padded(size)); continue }
             val out = File(dest, name)
 
@@ -375,7 +375,7 @@ class TarExtractor(private val dest: File, private val cancelled: () -> Boolean)
     }
 }
 
-/** Фоновый сервис установки: держит процесс живым, пока качается и распаковывается движок. */
+/** Фоновый сервис установки: держит процесс живым, пока качается и распаковывается ядро. */
 class EngineInstallService : Service() {
 
     private val channelId = "engine_install"
@@ -387,7 +387,7 @@ class EngineInstallService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(channelId, "Установка движка Windows", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(channelId, "Установка ядра Windows", NotificationManager.IMPORTANCE_LOW)
             )
         }
         startForeground(1, build("Подготовка…", 0, true))
@@ -401,7 +401,7 @@ class EngineInstallService : Service() {
             getSystemService(NotificationManager::class.java).cancel(1)
             val s = EngineManager.state
             getSystemService(NotificationManager::class.java).notify(2, build(
-                if (s.stage == EngineManager.Stage.DONE) "Движок Windows установлен" else "Установка не удалась: ${s.message}",
+                if (s.stage == EngineManager.Stage.DONE) "Ядро Windows установлено" else "Установка не удалась: ${s.message}",
                 -1, false
             ))
             stopSelf()
@@ -423,7 +423,7 @@ class EngineInstallService : Service() {
         val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, channelId)
         else @Suppress("DEPRECATION") Notification.Builder(this)
         b.setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Движок Windows")
+            .setContentTitle("Ядро Windows")
             .setContentText(text)
             .setContentIntent(open)
             .setOnlyAlertOnce(true)

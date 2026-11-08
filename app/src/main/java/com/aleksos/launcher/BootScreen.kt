@@ -25,7 +25,7 @@ import kotlin.concurrent.thread
 
 /**
  * Загрузка AleksOS «как настоящая ОС»:
- * 1) экран проверки оборудования и модулей движка с кнопкой BIOS;
+ * 1) экран проверки оборудования и модулей ядра с кнопкой BIOS;
  * 2) заставка AleksOS;
  * 3) рабочий стол.
  */
@@ -116,19 +116,19 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
 
         log.addView(mono("Проверка оборудования…", 13f, GRAY))
         thread(name = "post") {
-            val hw = HardwareInfo.collect(activity).filter { it.label != "Движок Windows" }
+            val hw = HardwareInfo.collect(activity).filter { it.label != "Ядро Windows" }
             val modules = WindowsEngine.modules(activity)
             activity.runOnUiThread {
                 if (finished) return@runOnUiThread
                 val lines = ArrayList<CharSequence>()
                 hw.forEach { lines += statusLine(it.label, it.value, if (it.ok) "OK" else "!!", it.ok) }
                 lines += ""
-                lines += "Модули движка Windows:"
+                lines += "Модули ядра Windows:"
                 modules.forEach {
                     lines += statusLine("  " + it.name, it.version ?: it.purpose, if (it.version != null) "OK" else "--", it.version != null)
                 }
                 lines += ""
-                lines += if (WindowsEngine.isAvailable(activity)) "Движок Windows готов." else "Движок Windows не установлен: Windows-программы недоступны."
+                lines += if (WindowsEngine.isAvailable(activity)) "Ядро Windows готово." else "Ядро Windows не установлено: Windows-программы недоступны."
                 printLines(log, lines) { startCountdown(countdown) }
             }
         }

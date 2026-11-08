@@ -26,7 +26,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
     /** Рабочая копия значений (до сохранения). */
     private val pending = HashMap<String, Int>().apply { SystemSettings.ALL.forEach { put(it.key, settings.get(it)) } }
 
-    private val tabs = listOf("Главная", "Движок", "Графика", "Загрузка", "Выход")
+    private val tabs = listOf("Главная", "Ядро", "Графика", "Загрузка", "Выход")
     private var currentTab = 0
     private val tabViews = ArrayList<TextView>()
     private val content: LinearLayout
@@ -113,7 +113,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
         content.removeAllViews()
         when (index) {
             0 -> buildMain()
-            1 -> buildOptions(SystemSettings.ENGINE_OPTIONS, "Параметры движка Windows (Wine + Box64)")
+            1 -> buildOptions(SystemSettings.ENGINE_OPTIONS, "Параметры ядра Windows (Wine + Box64)")
             2 -> buildOptions(SystemSettings.GRAPHICS_OPTIONS, "Графика и DirectX")
             3 -> buildOptions(SystemSettings.BOOT_OPTIONS, "Загрузка AleksOS")
             4 -> buildExit()
@@ -139,7 +139,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
                 lines.forEach { card.addView(infoRow(it.label, it.value, it.ok)) }
             }
         }
-        content.addView(sectionTitle("Модули движка Windows"))
+        content.addView(sectionTitle("Модули ядра Windows"))
         content.addView(card().apply {
             WindowsEngine.modules(activity).forEach {
                 addView(infoRow(it.name, (it.version ?: "не установлен") + "  ·  " + it.purpose, it.version != null))
@@ -155,7 +155,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
     private fun buildOptions(options: List<SystemSettings.Option>, title: String) {
         content.addView(sectionTitle(title))
         if ((options === SystemSettings.ENGINE_OPTIONS || options === SystemSettings.GRAPHICS_OPTIONS) && !WindowsEngine.isAvailable(activity)) {
-            content.addView(label("Движок ещё не установлен — настройки начнут действовать после его установки.", 12f, WARN).apply {
+            content.addView(label("Ядро ещё не установлено — настройки начнут действовать после его установки.", 12f, WARN).apply {
                 setPadding(dp(4), 0, dp(4), dp(10))
             })
         }
@@ -176,15 +176,15 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
             selectTab(4)
             android.widget.Toast.makeText(activity, "Значения по умолчанию загружены. Нажмите «Сохранить и выйти».", android.widget.Toast.LENGTH_LONG).show()
         })
-        content.addView(sectionTitle("Движок Windows"))
+        content.addView(sectionTitle("Ядро Windows"))
         val installed = WindowsEngine.isAvailable(activity)
-        content.addView(exitButton(if (installed) "Переустановить движок" else "Установить движок", primary = !installed) {
+        content.addView(exitButton(if (installed) "Переустановить ядро" else "Установить ядро", primary = !installed) {
             WindowsEngine.offerInstall(activity,
-                if (installed) "Движок будет скачан и установлен заново." else "Движок нужен, чтобы запускать Windows-программы.")
+                if (installed) "Ядро будет скачано и установлено заново." else "Ядро нужно, чтобы запускать Windows-программы.")
         })
         content.addView(exitButton("Сбросить диск C", enabled = installed) {})
         if (!installed) {
-            content.addView(label("«Сбросить диск C» станет доступен после установки движка.", 12f, DIM).apply { setPadding(dp(4), dp(4), 0, 0) })
+            content.addView(label("«Сбросить диск C» станет доступен после установки ядра.", 12f, DIM).apply { setPadding(dp(4), dp(4), 0, 0) })
         }
     }
 

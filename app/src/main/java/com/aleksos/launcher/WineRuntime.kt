@@ -9,7 +9,7 @@ import java.io.FileWriter
 
 /**
  * Подготовка окружения Wine перед запуском программы:
- * диски C:/D:/Z:, переменные окружения, журнал движка.
+ * диски C:/D:/Z:, переменные окружения, журнал ядра.
  */
 object WineRuntime {
 
@@ -53,15 +53,15 @@ object WineRuntime {
     }.getOrDefault("Журнал пуст")
 
     /**
-     * Диски Windows: C: — системный (внутри движка), D: — папка AleksOS, E: — вся память телефона,
-     * Z: — Linux-корень движка (нужен самому Wine). «Документы» и «Рабочий стол» Windows —
+     * Диски Windows: C: — системный (внутри ядра), D: — папка AleksOS, E: — вся память телефона,
+     * Z: — Linux-корень ядра (нужен самому Wine). «Документы» и «Рабочий стол» Windows —
      * это папки AleksOS, чтобы файлы из Windows-программ сразу были видны на телефоне.
      */
     fun prepareDrives(context: Context) {
         val rootfs = EngineManager.rootfsDir(context)
         val dosdevices = File(rootfs, "home/xuser/.wine/dosdevices")
         dosdevices.mkdirs()
-        dosdevices.listFiles()?.forEach { if (it.name.matches(Regex("[a-z]:"))) it.delete() }
+        dosdevices.listFiles()?.forEach { if (it.name.matches(Regex("[cdez]:"))) it.delete() }
         link("../drive_c", File(dosdevices, "c:"))
         link(FileOps.aleksosDir.absolutePath, File(dosdevices, "d:"))
         link(FileOps.storageRoot.absolutePath, File(dosdevices, "e:"))
@@ -79,7 +79,7 @@ object WineRuntime {
         File(rootfs, "tmp").listFiles()?.forEach { FileOps.deleteRecursive(it) }
         File(rootfs, "home/xuser/.wine/drive_c/windows/temp").listFiles()?.forEach { FileOps.deleteRecursive(it) }
 
-        // На случай пакета движка без готового wine (пакет 1): берём 64-битный WoW64
+        // На случай пакета ядра без готового wine (пакет 1): берём 64-битный WoW64
         val bin = File(rootfs, "opt/wine/bin")
         copyIfMissing(File(bin, "wine-wow64"), File(bin, "wine"))
         copyIfMissing(File(bin, "wine-preloader-wow64"), File(bin, "wine-preloader"))
@@ -211,4 +211,38 @@ object WineRuntime {
     }
 
     fun escape(arg: String) = arg.replace(" ", "\\ ")
+
+    /**
+     * Команда в форме для proot («start /max /d D:\Мои\ игры game.exe») → что запускать и аргументы
+     * для ShellExecute внутри Wine: экранирование «\ » снимается, слова с пробелами берутся в кавычки.
+     */
+    fun toExec(command: String): Pair<String, String> {
+        val tokens = ArrayList<String>()
+        val cur = StringBuilder()
+        var i = 0
+        while (i < command.length) {
+            val c = command[i]
+            if (c == '\\' && i + 1 < command.length && command[i + 1] == ' ') { cur.append(' '); i += 2; continue }
+            if (c == ' ') { if (cur.isNotEmpty()) tokens += cur.toString(); cur.clear() } else cur.append(c)
+            i++
+        }
+        if (cur.isNotEmpty()) tokens += cur.toString()
+        fun quote(t: String) = if (' ' in t && !t.startsWith("\"")) "\"$t\"" else t
+        val file = tokens.firstOrNull() ?: return "" to ""
+        return file to tokens.drop(1).joinToString(" ") { quote(it) }
+    }
+
+    private var nextShortDrive = 0
+    private const val SHORT_DRIVES = "mnopqrstuvwxy"
+
+    /**
+     * Длинный путь к программе не помещается в команду для Wine — даём её папке
+     * свою букву диска (M:…Y:, по кругу) и запускаем оттуда.
+     */
+    fun mapShortDrive(context: Context, dir: File): String {
+        val letter = synchronized(this) { SHORT_DRIVES[nextShortDrive++ % SHORT_DRIVES.length] }
+        val dosdevices = File(EngineManager.rootfsDir(context), "home/xuser/.wine/dosdevices")
+        link(dir.absolutePath, File(dosdevices, "$letter:"))
+        return "${letter.uppercaseChar()}:"
+    }
 }
