@@ -29,6 +29,10 @@ object Updater {
 
     private const val LATEST_RELEASE_URL =
         "https://api.github.com/repos/kalibert801-ctrl/Launcher-Android/releases/latest"
+    private const val LATEST_RELEASE_PAGE =
+        "https://github.com/kalibert801-ctrl/Launcher-Android/releases/latest"
+    private const val RELEASE_DOWNLOAD =
+        "https://github.com/kalibert801-ctrl/Launcher-Android/releases/download"
     private const val PREFS = "updater"
     private const val KEY_LAST_CHECK = "last_check"
     private const val KEY_SKIPPED_BUILD = "skipped_build"
@@ -71,7 +75,7 @@ object Updater {
                 busy = false
                 if (activity.isFinishing || activity.isDestroyed) return@post
                 val release = result.getOrElse {
-                    if (manual) toast(activity, "Не удалось проверить обновления. Есть ли интернет?")
+                    if (manual) toast(activity, "Не удалось проверить обновления (${it.message ?: it.javaClass.simpleName}). Есть ли интернет?")
                     return@post
                 }
                 val current = currentBuild(activity)
@@ -86,7 +90,42 @@ object Updater {
         }
     }
 
+    /**
+     * Узнать последнюю сборку. Сначала через обычную страницу github.com/…/releases/latest
+     * (она перенаправляет на …/tag/build-N): у неё нет лимита запросов. API GitHub
+     * разрешает без входа только 60 запросов в час с одного адреса, а у мобильного интернета
+     * один адрес на тысячи абонентов, поэтому API часто отвечает «превышен лимит».
+     */
     private fun fetchLatest(): Release? {
+        val viaPage = runCatching { fetchLatestViaPage() }
+        viaPage.getOrNull()?.let { return it }
+        return runCatching { fetchLatestViaApi() }.getOrElse { apiError ->
+            throw viaPage.exceptionOrNull() ?: apiError
+        }
+    }
+
+    private fun fetchLatestViaPage(): Release? {
+        val conn = (URL(LATEST_RELEASE_PAGE).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15_000
+            readTimeout = 15_000
+            instanceFollowRedirects = false
+            requestMethod = "HEAD"
+            setRequestProperty("User-Agent", "AleksOS-Launcher")
+        }
+        try {
+            val code = conn.responseCode
+            if (code !in 300..399) error("HTTP $code")
+            val location = conn.getHeaderField("Location") ?: error("нет адреса сборки")
+            val tag = location.substringAfterLast("/tag/", "")
+            val build = tag.removePrefix("build-").toIntOrNull() ?: return null
+            val apk = "$RELEASE_DOWNLOAD/build-$build/AleksOS-Launcher-$build.apk"
+            return Release(build, apk, "")
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun fetchLatestViaApi(): Release? {
         val conn = (URL(LATEST_RELEASE_URL).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 15_000
