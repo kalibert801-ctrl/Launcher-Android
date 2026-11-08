@@ -47,7 +47,7 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
         top.addView(LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), 0, 0, 0)
-            addView(label("AleksOS UEFI BIOS", 16f, Color.WHITE, bold = true))
+            addView(label("AleksOS UEFI BIOS  v${BiosVersion.number(activity)}", 16f, Color.WHITE, bold = true))
             addView(label("Расширенный режим", 11f, ACCENT))
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(LinearLayout(activity).apply {
@@ -294,4 +294,16 @@ class BiosView(private val activity: Activity, private val onExit: () -> Unit) :
         const val LINE = 0x33FFFFFF
         const val WARN = 0xFFFBBF24.toInt()
     }
+}
+
+/** Версия BIOS AleksOS: 1.<номер сборки> и дата установки сборки (BIOS обновляется вместе с AleksOS). */
+object BiosVersion {
+    fun number(context: android.content.Context): String = "1.${Updater.currentBuild(context)}"
+
+    fun date(context: android.content.Context): String = runCatching {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale("ru")).format(java.util.Date(info.lastUpdateTime))
+    }.getOrDefault("")
+
+    fun full(context: android.content.Context) = "AleksOS UEFI ${number(context)}" + date(context).let { if (it.isNotEmpty()) " от $it" else "" }
 }

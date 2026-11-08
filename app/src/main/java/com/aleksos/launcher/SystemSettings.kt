@@ -104,6 +104,7 @@ object HardwareInfo {
 
     fun collect(context: Context): List<Line> {
         val lines = ArrayList<Line>()
+        lines += Line("Версия BIOS", BiosVersion.full(context))
         lines += Line("Устройство", deviceName())
         lines += Line("Процессор", cpu())
         lines += Line("Оперативная память", ram(context))

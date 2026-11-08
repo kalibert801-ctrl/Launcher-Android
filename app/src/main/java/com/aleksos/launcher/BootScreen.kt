@@ -72,7 +72,7 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
         header.addView(LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, 0, 0)
-            addView(mono("AleksOS UEFI  v1.0", 15f, Color.WHITE, bold = true))
+            addView(mono("AleksOS UEFI  v${BiosVersion.number(activity)}", 15f, Color.WHITE, bold = true))
             addView(mono("Copyright (C) AleksOS Project", 11f, GRAY))
         })
         column.addView(header)
