@@ -3,6 +3,7 @@ package com.aleksos.launcher
 import android.content.Context
 import android.system.Os
 import com.winlator.core.EnvVars
+import com.winlator.xconnector.UnixSocketConfig
 import com.winlator.core.ProcessHelper
 import java.io.File
 import java.io.FileWriter
@@ -74,6 +75,8 @@ object WineRuntime {
         }
 
         installRussianLocale(context, rootfs)
+        runCatching { applyDirectX(context, rootfs) }.onFailure { writeLog("DirectX: $it") }
+        runCatching { setAudioDriver(rootfs) }.onFailure { writeLog("Звук: $it") }
 
         File(rootfs, "tmp").mkdirs()
         File(rootfs, "tmp").listFiles()?.forEach { FileOps.deleteRecursive(it) }
@@ -132,6 +135,88 @@ object WineRuntime {
             .onFailure { writeLog("Не удалось установить русскую локаль: $it") }
     }
 
+    /**
+     * Звук: Wine выводит звук через ALSA, а ALSA-модуль из Winlator передаёт его в AleksOS
+     * (ALSAServerComponent → AAudio Android). В реестре Wine: HKCU\Software\Wine\Drivers, Audio = alsa.
+     */
+    private fun setAudioDriver(rootfs: File) {
+        val reg = File(rootfs, "home/xuser/.wine/user.reg")
+        if (!reg.isFile) return
+        val text = reg.readText()
+        // в файле реестра обратная косая черта записана двойной
+        val header = "[Software\\\\Wine\\\\Drivers]"
+        val audio = "\"Audio\"=\"alsa\""
+        val start = text.indexOf(header)
+        val updated = if (start < 0) {
+            text.trimEnd() + "\n\n$header\n$audio\n"
+        } else {
+            val lineEnd = text.indexOf('\n', start).let { if (it < 0) text.length else it }
+            val next = text.indexOf("\n[", lineEnd).let { if (it < 0) text.length else it }
+            val section = text.substring(lineEnd, next)
+            if (section.contains(audio)) return
+            val cleaned = section.lines().filterNot { it.startsWith("\"Audio\"=") }.joinToString("\n")
+            text.substring(0, lineEnd) + "\n" + audio + cleaned + text.substring(next)
+        }
+        reg.writeText(updated)
+    }
+
+    // ---------- DirectX для игр: DXVK (DirectX 9–11 → Vulkan) и VKD3D (DirectX 12 → Vulkan) ----------
+
+    private val DX_DLLS = listOf("d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll", "d3d12.dll", "d3d12core.dll")
+
+    /** Включён ли DXVK в BIOS (иначе — WineD3D, встроенный в Wine). */
+    fun dxvkEnabled(context: Context) = SystemSettings(context).get(SystemSettings.DIRECTX) == 0
+
+    /**
+     * Кладём библиотеки DXVK/VKD3D в system32/syswow64 (как Winlator) или возвращаем библиотеки Wine.
+     * Оригиналы Wine сохраняются один раз в windows/aleksos-wine-dlls.
+     */
+    private fun applyDirectX(context: Context, rootfs: File) {
+        val dxvk = dxvkEnabled(context)
+        val windows = File(rootfs, "home/xuser/.wine/drive_c/windows")
+        val marker = File(windows, "aleksos-directx.txt")
+        val want = if (dxvk) "dxvk" else "wined3d"
+        if (marker.isFile && marker.readText().trim() == want) return
+        val backup = File(windows, "aleksos-wine-dlls")
+        val wrapper = File(EngineManager.engineDir(context), "dxwrapper")
+        for (arch in listOf("system32", "syswow64")) {
+            val dir = File(windows, arch)
+            val saved = File(backup, arch).apply { mkdirs() }
+            for (dll in DX_DLLS) {
+                val current = File(dir, dll)
+                val orig = File(saved, dll)
+                if (!orig.exists() && current.isFile && !marker.isFile) current.copyTo(orig)
+                if (dxvk) {
+                    val src = listOf(File(wrapper, "dxvk/$arch/$dll"), File(wrapper, "vkd3d/$arch/$dll")).firstOrNull { it.isFile }
+                    if (src != null) src.copyTo(current, overwrite = true)
+                } else if (orig.isFile) {
+                    orig.copyTo(current, overwrite = true)
+                }
+            }
+        }
+        marker.writeText(want)
+        writeLog("DirectX: $want")
+    }
+
+    /** Переменные для DXVK/VKD3D и ограничение кадров из BIOS. */
+    private fun directXEnv(context: Context, env: EnvVars) {
+        if (!dxvkEnabled(context)) return
+        env.put("WINEDLLOVERRIDES", "d3d9,d3d10core,d3d11,dxgi,d3d12,d3d12core=n,b")
+        env.put("DXVK_LOG_LEVEL", "none")
+        env.put("VKD3D_FEATURE_LEVEL", "12_1")
+        env.put("DXVK_STATE_CACHE_PATH", "/home/xuser/.cache")
+        val fps = when (SystemSettings(context).get(SystemSettings.FPS_LIMIT)) { 1 -> 30; 2 -> 60; else -> 0 }
+        val conf = File(EngineManager.rootfsDir(context), "home/xuser/.config/dxvk.conf")
+        runCatching {
+            File(EngineManager.rootfsDir(context), "home/xuser/.cache").mkdirs()
+            if (fps > 0) {
+                conf.parentFile?.mkdirs()
+                conf.writeText("dxgi.maxFrameRate = $fps\nd3d9.maxFrameRate = $fps\n")
+                env.put("DXVK_CONFIG_FILE", "/home/xuser/.config/dxvk.conf")
+            } else conf.delete()
+        }
+    }
+
     fun hasRussianLocale(context: Context) =
         File(EngineManager.rootfsDir(context), "usr/lib/locale/$RU_LOCALE/LC_CTYPE").isFile
 
@@ -149,6 +234,8 @@ object WineRuntime {
         env.put("LC_ALL", locale)
         env.put("LANG", locale)
         env.put("WINEESYNC", "1")
+        env.put("ANDROID_ALSA_SERVER", UnixSocketConfig.ALSA_SERVER_PATH)
+        env.put("ANDROID_ASERVER_USE_SHM", "true")
         env.put("MESA_DEBUG", "silent")
         env.put("MESA_NO_ERROR", "1")
         env.put("MESA_SHADER_CACHE_DISABLE", "false")
@@ -161,6 +248,7 @@ object WineRuntime {
         env.put("TU_OVERRIDE_HEAP_SIZE", "4096")
         env.put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
         env.put("vblank_mode", "0")
+        directXEnv(context, env)
         return env
     }
 

@@ -66,7 +66,9 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
 
 ## Этапы
 1. ✅ Лаунчер: Android-приложения, поиск, плитка «Добавить .exe», Windows-программы с меткой WIN.
-2. 🔶 Движок: Wine + Box64 — Блокнот работает. Осталось: русский язык Wine и кириллица с клавиатуры, звук, DXVK/VKD3D для игр, настройки BIOS.
+2. 🔶 Движок: Wine + Box64 — Блокнот работает, русский есть. Звук (ALSAServerComponent из Winlator → AAudio, реестр Audio=alsa)
+   и DXVK/VKD3D (BIOS «DirectX»: DLL в system32/syswow64, оригиналы в windows/aleksos-wine-dlls, WINEDLLOVERRIDES=n,b)
+   добавлены, на телефоне не проверены. Осталось: остальные настройки BIOS (память, ядра, версия Windows).
 3. 🔶 Иконки из .exe (`ExeIcon.kt`), ярлыки .lnk (`LnkFile.kt`: LinkInfo и IDList), установка: setup.exe запускается
    как обычная программа, новые ярлыки из «Пуска» Wine (`InstalledPrograms.kt`) сами добавляются на стол.
    Не проверено на телефоне с настоящим установщиком.

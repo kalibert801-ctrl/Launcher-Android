@@ -13,12 +13,14 @@ add_library(winlator SHARED
             winlator/drawable.c
             winlator/gpu_image.c
             winlator/sysvshared_memory.c
-            winlator/xconnector_epoll.c)
+            winlator/xconnector_epoll.c
+            winlator/alsa_client.c)
 
 target_link_libraries(winlator
                       log
                       android
                       jnigraphics
+                      aaudio
                       EGL
                       GLESv2
                       GLESv3)

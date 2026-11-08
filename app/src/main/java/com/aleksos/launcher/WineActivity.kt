@@ -35,6 +35,7 @@ import com.winlator.xenvironment.XEnvironment
 import com.winlator.xenvironment.components.GuestProgramLauncherComponent
 import com.winlator.xenvironment.components.SysVSharedMemoryComponent
 import com.winlator.xenvironment.components.XServerComponent
+import com.winlator.xenvironment.components.ALSAServerComponent
 import com.winlator.xserver.Pointer
 import com.winlator.xserver.ScreenInfo
 import com.winlator.xserver.XServer
@@ -174,6 +175,8 @@ class WineActivity : Activity() {
             val env = XEnvironment(this, imageFs)
             env.addComponent(SysVSharedMemoryComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.SYSVSHM_SERVER_PATH)))
             env.addComponent(XServerComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.XSERVER_PATH)))
+            // звук: ALSA внутри Wine → AAudio Android
+            env.addComponent(ALSAServerComponent(UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.ALSA_SERVER_PATH)))
             val launcher = GuestProgramLauncherComponent()
             desktopArg = "/desktop=shell,${screen.first}x${screen.second}"
             val handlerExe = File(imageFs.rootDir, "home/xuser/.wine/drive_c/windows/winhandler.exe")
