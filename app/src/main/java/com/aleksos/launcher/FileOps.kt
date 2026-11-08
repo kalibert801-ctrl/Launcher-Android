@@ -27,8 +27,34 @@ object FileOps {
     /** Корень памяти телефона (то, что в Windows было бы диском C:). */
     val storageRoot: File get() = Environment.getExternalStorageDirectory()
 
+    /** Главная папка AleksOS — всё своё лежит в одном месте, как папка пользователя в Windows. */
+    val aleksosDir: File get() = File(storageRoot, "AleksOS")
+
     /** Папка рабочего стола: всё, что в ней лежит, видно на рабочем столе AleksOS. */
-    val desktopDir: File get() = File(storageRoot, "Desktop")
+    val desktopDir: File get() = File(aleksosDir, "Рабочий стол")
+    val documentsDir: File get() = File(aleksosDir, "Документы")
+    /** Сюда будут ставиться Windows-программы. */
+    val programsDir: File get() = File(aleksosDir, "Программы")
+
+    /**
+     * Создаёт AleksOS/Рабочий стол, Документы, Программы.
+     * Если есть старая папка Desktop (из сборки 4), переносит её содержимое в «Рабочий стол».
+     * Вызывать не в главном потоке и только при наличии доступа к файлам.
+     */
+    fun ensureStructure() {
+        listOf(desktopDir, documentsDir, programsDir).forEach { it.mkdirs() }
+        val old = File(storageRoot, "Desktop")
+        if (old.isDirectory) {
+            old.listFiles()?.forEach { f ->
+                val target = uniqueName(desktopDir, f.name, isDirectory = f.isDirectory)
+                if (!f.renameTo(target)) {
+                    copyRecursive(f, target)
+                    deleteRecursive(f)
+                }
+            }
+            old.delete()   // удалится, только если стала пустой
+        }
+    }
 
     // ---------- Разрешение на доступ к файлам ----------
 

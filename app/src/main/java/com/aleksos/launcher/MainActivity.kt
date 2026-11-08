@@ -350,7 +350,7 @@ class MainActivity : Activity() {
             val pinnedTaskbar = taskbarPins.load()
             // Файлы и папки из папки «Desktop» в памяти телефона
             val desktopFiles = if (FileOps.hasAccess(this)) {
-                FileOps.desktopDir.mkdirs()
+                runCatching { FileOps.ensureStructure() }
                 FileOps.desktopDir.listFiles()
                     ?.filter { !it.name.startsWith(".") }
                     ?.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase() }))

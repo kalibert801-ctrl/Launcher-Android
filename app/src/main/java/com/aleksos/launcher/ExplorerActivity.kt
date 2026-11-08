@@ -162,7 +162,7 @@ class ExplorerActivity : Activity() {
         commands.addView(newFolderButton)
         pasteButton = commandButton("Вставить") { currentDir?.let { FileMenu.paste(this, it) { refresh() } } }
         commands.addView(pasteButton)
-        commands.addView(commandButton("Рабочий стол") { navigate(FileOps.desktopDir.also { it.mkdirs() }) })
+        commands.addView(commandButton("Рабочий стол") { navigate(FileOps.desktopDir) })
         commands.addView(commandButton("Свойства") { currentDir?.let { FileMenu.properties(this, it) } })
         frame.addView(HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -372,6 +372,7 @@ class ExplorerActivity : Activity() {
     private fun refresh() {
         val dir = currentDir
         val access = FileOps.hasAccess(this)
+        if (access) executor.execute { runCatching { FileOps.ensureStructure() } }
         accessBanner.visibility = if (access) View.GONE else View.VISIBLE
         titleText.text = dir?.let { displayName(it) } ?: "Этот телефон"
         titleIcon.setImageDrawable(if (dir == null) FileIconDrawable.phone() else FileIconDrawable.folder())
@@ -420,16 +421,17 @@ class ExplorerActivity : Activity() {
             list += Entry(card, "Карта памяти / USB", FileIconDrawable.drive(), freeSpace(card))
         }
         val quick = listOf(
+            "AleksOS" to FileOps.aleksosDir,
             "Рабочий стол" to FileOps.desktopDir,
+            "Документы" to FileOps.documentsDir,
             "Загрузки" to File(root, "Download"),
-            "Документы" to File(root, "Documents"),
             "Изображения" to File(root, "Pictures"),
             "Камера" to File(root, "DCIM"),
             "Музыка" to File(root, "Music"),
             "Видео" to File(root, "Movies"),
         )
         quick.forEach { (title, dir) ->
-            if (dir.isDirectory || dir == FileOps.desktopDir) list += Entry(dir, title, FileIconDrawable.folder(), "Папка")
+            if (dir.isDirectory) list += Entry(dir, title, FileIconDrawable.folder(), "Папка")
         }
         return list
     }
@@ -449,9 +451,9 @@ class ExplorerActivity : Activity() {
     private fun addressOf(dir: File): String {
         val rootPath = FileOps.storageRoot.canonicalPath
         val path = dir.canonicalPath
-        val desktopPath = FileOps.desktopDir.canonicalPath
-        if (path == desktopPath || path.startsWith(desktopPath + "/")) {
-            return "Рабочий стол" + path.removePrefix(desktopPath).replace("/", " › ")
+        val aleksosPath = FileOps.aleksosDir.canonicalPath
+        if (path == aleksosPath || path.startsWith(aleksosPath + "/")) {
+            return "AleksOS" + path.removePrefix(aleksosPath).replace("/", " › ")
         }
         return if (path.startsWith(rootPath)) {
             "Этот телефон › Внутренняя память" + path.removePrefix(rootPath).replace("/", " › ")
