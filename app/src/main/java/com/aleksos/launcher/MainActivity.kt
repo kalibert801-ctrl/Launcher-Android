@@ -472,6 +472,14 @@ class MainActivity : Activity() {
                         foreground = Ui.rounded(0, dp(10).toFloat(), Ui.ACCENT_TEXT, dp(2))
                     })
                 }
+                WineActivity.runningTitle?.let { wineTitle ->
+                    // открытое (или свёрнутое) окно Windows-программы
+                    taskbarApps.addView(taskbarButton(TileIconDrawable.forWindowsApp(wineTitle), dp(30)) {
+                        WineActivity.bringToFront(this)
+                    }.apply {
+                        foreground = Ui.rounded(0, dp(10).toFloat(), Ui.ACCENT_TEXT, dp(2))
+                    })
+                }
                 pinnedTaskbar.mapNotNull { byComponent[it] }.forEach { item ->
                     taskbarApps.addView(taskbarButton(item.icon, dp(30)) { onItemClick(item) }.apply {
                         setOnLongClickListener { onItemLongClick(item); true }

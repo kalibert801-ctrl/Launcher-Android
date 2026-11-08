@@ -173,7 +173,8 @@ class WineActivity : Activity() {
             env.addComponent(SysVSharedMemoryComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.SYSVSHM_SERVER_PATH)))
             env.addComponent(XServerComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.XSERVER_PATH)))
             val launcher = GuestProgramLauncherComponent()
-            launcher.setGuestExecutable("wine explorer /desktop=shell,${screen.first}x${screen.second} $command")
+            desktopArg = "/desktop=shell,${screen.first}x${screen.second}"
+            launcher.setGuestExecutable("wine explorer $desktopArg $command")
             configure(launcher)
             launcher.setTerminationCallback { code -> main.post { onWineExit(code) } }
             env.addComponent(launcher)
@@ -218,10 +219,14 @@ class WineActivity : Activity() {
         thread(name = "wine-extra") {
             runCatching {
                 val extra = GuestProgramLauncherComponent()
-                extra.setGuestExecutable("wine $command")
+                // через тот же рабочий стол «shell»: Wine видит, что он уже открыт, и просто
+                // запускает программу в нём (без этого программа уходила на невидимый рабочий стол)
+                extra.setGuestExecutable("wine explorer $desktopArg $command")
                 configure(extra)
                 extra.setEnvironment(env)
+                extra.setTerminationCallback { code -> WineRuntime.writeLog("=== $newTitle: процесс завершился, код $code ===") }
                 extra.start()
+                if (extra.pid <= 0) main.post { showError("Не удалось запустить «$newTitle».") }
                 synchronized(extras) { extras += extra }
             }.onFailure { WineRuntime.writeLog("Ошибка запуска: $it") }
         }
@@ -251,6 +256,7 @@ class WineActivity : Activity() {
     }
 
     private val extras = ArrayList<GuestProgramLauncherComponent>()
+    @Volatile private var desktopArg = "/desktop=shell"
     private var titleView: TextView? = null
 
     private fun onWineExit(code: Int) {
