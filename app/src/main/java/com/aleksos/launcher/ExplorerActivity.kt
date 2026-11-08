@@ -405,7 +405,8 @@ class ExplorerActivity : Activity() {
                 } else {
                     FileOps.formatDate(f.lastModified()) + "   ·   " + FileOps.formatSize(f.length())
                 }
-                Entry(f, f.name, FileIconDrawable.forEntry(f), detail)
+                val icon = (if (!f.isDirectory && ExeIcon.isExe(f)) ExeIcon.drawable(this, f) else null) ?: FileIconDrawable.forEntry(f)
+                Entry(f, f.name, icon, detail)
             }
     }
 

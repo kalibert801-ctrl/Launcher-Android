@@ -430,6 +430,9 @@ class MainActivity : Activity() {
 
     // ---------- Загрузка списков ----------
 
+    /** Иконки Windows-программ по названию (для значка открытой программы на панели задач). */
+    private var windowsIcons: Map<String, android.graphics.drawable.Drawable> = emptyMap()
+
     private fun reload() {
         val generation = ++loadGeneration
         val windowsApps = store.load()
@@ -445,11 +448,22 @@ class MainActivity : Activity() {
                     ?.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase() }))
                     ?: emptyList()
             } else emptyList()
+            // настоящие иконки программ из их .exe
+            val exeIcons = HashMap<String, android.graphics.drawable.Drawable>()
+            windowsApps.forEach { app ->
+                runCatching { WindowsEngine.resolveFile(this, app.uri) }.getOrNull()
+                    ?.takeIf { ExeIcon.isExe(it) }
+                    ?.let { f -> ExeIcon.drawable(this, f)?.let { exeIcons[app.id] = it } }
+            }
+            desktopFiles.filter { ExeIcon.isExe(it) }.forEach { f ->
+                ExeIcon.drawable(this, f)?.let { exeIcons[f.absolutePath] = it }
+            }
             runOnUiThread {
                 if (isDestroyed || generation != loadGeneration) return@runOnUiThread
                 val windowsItems = windowsApps.sortedBy { it.name.lowercase() }.map {
-                    Item(Kind.WINDOWS, it.name, TileIconDrawable.forWindowsApp(it.name), windowsApp = it)
+                    Item(Kind.WINDOWS, it.name, exeIcons[it.id] ?: TileIconDrawable.forWindowsApp(it.name), windowsApp = it)
                 }
+                windowsIcons = windowsItems.associate { it.label to it.icon }
                 val byComponent = androidItems.associateBy { it.component }
 
                 // Рабочий стол: закреплённые приложения и Windows-программы.
@@ -459,7 +473,7 @@ class MainActivity : Activity() {
                 pinnedDesktop.mapNotNullTo(onDesktop) { byComponent[it] }
                 onDesktop += windowsItems
                 desktopFiles.mapTo(onDesktop) {
-                    Item(Kind.FILE, it.name, FileIconDrawable.forEntry(it), file = it)
+                    Item(Kind.FILE, it.name, exeIcons[it.absolutePath] ?: FileIconDrawable.forEntry(it), file = it)
                 }
                 desktopItems = onDesktop.associateBy { it.key }
                 desktop.setEntries(onDesktop.map { it.key to makeCell(it, darkText = false) })
@@ -474,7 +488,7 @@ class MainActivity : Activity() {
                 }
                 WineActivity.runningTitle?.let { wineTitle ->
                     // открытое (или свёрнутое) окно Windows-программы
-                    taskbarApps.addView(taskbarButton(TileIconDrawable.forWindowsApp(wineTitle), dp(30)) {
+                    taskbarApps.addView(taskbarButton(windowsIcons[wineTitle]?.constantState?.newDrawable()?.mutate() ?: TileIconDrawable.forWindowsApp(wineTitle), dp(30)) {
                         WineActivity.bringToFront(this)
                     }.apply {
                         foreground = Ui.rounded(0, dp(10).toFloat(), Ui.ACCENT_TEXT, dp(2))
