@@ -21,6 +21,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: NDK и CMake для нативной части движка
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+
       - name: Сборка
         run: ./gradlew assembleDebug --no-daemon
 

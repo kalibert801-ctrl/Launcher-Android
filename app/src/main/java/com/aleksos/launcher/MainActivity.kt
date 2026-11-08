@@ -292,6 +292,19 @@ class MainActivity : Activity() {
                 override fun afterTextChanged(s: Editable?) = applyFilter()
             })
         }
+        // «Стандартные» — встроенные программы Windows (Блокнот, WordPad, cmd…)
+        startPanel.addView(TextView(this).apply {
+            text = "▦  Стандартные Windows  ›"
+            setTextColor(Ui.ACCENT_TEXT)
+            textSize = 13f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            Ui.pressable(this, Ui.rounded(Ui.FIELD, dp(8).toFloat()), dp(8).toFloat())
+            setOnClickListener { closeStartMenu(); showStandardPrograms() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(6)
+        })
+
         startPanel.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
         })
@@ -365,6 +378,15 @@ class MainActivity : Activity() {
         search.clearFocus()
         startPanel.animate().translationY(dp(40).toFloat()).alpha(0f).setDuration(110)
             .withEndAction { startMenu.visibility = View.GONE }.start()
+    }
+
+    /** «Пуск → Стандартные»: программы, которые идут вместе с Wine. */
+    private fun showStandardPrograms() {
+        val list = WindowsEngine.STANDARD
+        AosDialog(this)
+            .title("Стандартные Windows")
+            .items(list.map { "${it.name}  ·  ${it.hint}" }) { WindowsEngine.launchStandard(this, list[it]) }
+            .show()
     }
 
     /** BIOS из меню «Пуск» (без перезагрузки). */

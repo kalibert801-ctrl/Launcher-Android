@@ -64,6 +64,17 @@
             android:theme="@style/AosWindow"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Окно Windows-программы (Wine + X-сервер). Своя задача в «недавних». -->
+        <activity
+            android:name=".WineActivity"
+            android:exported="false"
+            android:label="Windows-программа"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.aleksos.launcher.wine"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Отдаёт файлы другим приложениям при «Открыть» / «Отправить» -->
         <provider
             android:name=".FilesProvider"

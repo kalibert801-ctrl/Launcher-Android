@@ -49,15 +49,21 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
   Release `engine-N` (prerelease, не latest!): `aleksos-engine-N.tar.gz` + `engine-N.json` (размер, sha256).
   Установщик — `EngineManager.kt` (докачка, проверка sha256, свой распаковщик tar, сервис с уведомлением).
   Для проверки на эмуляторе адрес пакета подменяется файлом `files/engine-manifest-url.txt` (через `run-as`).
-- Этап 2, шаг 2 (следующий): proot (собрать из исходников Winlator Cmod `app/src/main/cpp/proot`
-  в `jniLibs` как libproot.so/libproot-loader.so), запуск `box64 wine` в rootfs, X-сервер на Java
-  (порт `com.winlator.xserver`), окно программы. Проверять можно только на телефоне (эмулятор x86).
+- Этап 2, шаг 2 (сделан, ждёт проверки на телефоне): код Winlator Cmod (ветка `main`, proot-версия!)
+  перенесён в `com.winlator.*` (X-сервер, renderer, xconnector, sysvshm) + `app/src/main/cpp`
+  (proot, libproot-loader как статическая программа без libc, libwinlator). Окно программы —
+  `WineActivity` (своя задача), запуск: proot → box64 → `wine explorer /desktop=shell,WxH <cmd>`.
+  `WineRuntime.kt`: диски (C: внутри, D: = /sdcard/AleksOS, Z: = /), env, журнал `files/engine-log.txt`.
+  Пакет движка 2: готовый wineprefix в rootfs/home/xuser/.wine, imagefs_patches (libandroid-sysvshm),
+  zink, chmod 755 всем файлам (в образе Winlator нет флагов исполнения). «Пуск → Стандартные Windows».
+  На эмуляторе x86 proot стартует, но зависает (ptrace под трансляцией ARM) — проверять только на телефоне.
+  Сейчас одна Windows-программа за раз; кириллица с экранной клавиатуры пока не вводится.
 - Владелец смотрит работу через Remote Control с телефона: кнопки-вопросы и картинки там не видны,
   поэтому вопросы задавать обычным текстом.
 
 ## Этапы
 1. ✅ Лаунчер: Android-приложения, поиск, плитка «Добавить .exe», Windows-программы с меткой WIN.
-2. ⬜ Движок: Wine + Box64, запуск одного `.exe` из лаунчера.
+2. 🔶 Движок: Wine + Box64, запуск одного `.exe` из лаунчера (сделано, проверяется на телефоне).
 3. ⬜ Установка через `setup.exe`, автоматические иконки (извлекать из ресурсов .exe/.lnk).
 4. ⬜ Отдельное окно Android на каждую Windows-программу.
 5. ⬜ Интеграция: общие папки телефона как диск D:, общий буфер обмена, «открыть с помощью».

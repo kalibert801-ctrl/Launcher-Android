@@ -19,6 +19,27 @@ android {
         val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionCode = buildNumber
         versionName = "0.2.$buildNumber"
+
+        // Движок Windows (Wine/Box64) работает только на ARM64 — как у всех современных телефонов.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    // Нативная часть движка: proot и функции X-сервера (app/src/main/cpp)
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    // .so-файлы должны лежать распакованными на диске: proot запускается как программа
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     // Фиксированный ключ подписи: каждая новая сборка ставится поверх старой

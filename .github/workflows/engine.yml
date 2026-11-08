@@ -37,16 +37,48 @@ jobs:
           curl -fL --retry 3 -o dxvk.tzst     "$RAW/dxwrapper/dxvk-2.3.1.tzst"
           curl -fL --retry 3 -o vkd3d.tzst    "$RAW/dxwrapper/vkd3d-2.12.tzst"
           curl -fL --retry 3 -o container.tzst "$RAW/container_pattern.tzst"
+          curl -fL --retry 3 -o patches.tzst  "$RAW/imagefs_patches.tzst"
+          curl -fL --retry 3 -o zink.tzst     "$RAW/graphics_driver/zink-22.2.5.tzst"
+          curl -fL --retry 3 -o common_dlls.json "$RAW/common_dlls.json"
           ls -la
 
       - name: Собрать пакет
         run: |
           set -e
-          mkdir -p pack/rootfs pack/container pack/dxwrapper/dxvk pack/dxwrapper/vkd3d
+          mkdir -p pack/rootfs pack/dxwrapper/dxvk pack/dxwrapper/vkd3d
           tar -xJf imagefs.txz -C pack/rootfs
           tar --zstd -xf box64.tzst  -C pack/rootfs
           tar --zstd -xf turnip.tzst -C pack/rootfs
-          tar --zstd -xf container.tzst -C pack/container
+          tar --zstd -xf zink.tzst   -C pack/rootfs
+          # «Диск C»: папка Wine (wineprefix) в /home/xuser/.wine, как в Winlator
+          mkdir -p pack/rootfs/home/xuser
+          tar --zstd -xf container.tzst -C pack/rootfs/home/xuser
+          # общие DLL Winlator хранит один раз в /opt/wine — копируем их в system32/syswow64
+          python3 - <<'PY'
+          import json, shutil, os
+          root = "pack/rootfs"
+          dlls = json.load(open("common_dlls.json"))
+          for src, dst in (("x86_64-windows", "system32"), ("i386-windows", "syswow64")):
+              for name in dlls[dst]:
+                  s = f"{root}/opt/wine/lib/wine/{src}/{name}"
+                  d = f"{root}/home/xuser/.wine/drive_c/windows/{dst}/{name}"
+                  if os.path.isfile(s):
+                      os.makedirs(os.path.dirname(d), exist_ok=True)
+                      shutil.copyfile(s, d)
+                  else:
+                      print("нет файла", s)
+          PY
+          # исправления Winlator: libandroid-sysvshm, курсоры, winhandler.exe, 7-Zip
+          tar --zstd -xf patches.tzst -C pack/rootfs
+          # Wine в режиме WoW64 (64-битный, 32-битные программы тоже работают)
+          cp pack/rootfs/opt/wine/bin/wine-wow64 pack/rootfs/opt/wine/bin/wine
+          cp pack/rootfs/opt/wine/bin/wine-preloader-wow64 pack/rootfs/opt/wine/bin/wine-preloader
+          chmod 755 pack/rootfs/opt/wine/bin/wine pack/rootfs/opt/wine/bin/wine-preloader
+          mkdir -p pack/rootfs/tmp
+          # В образе Winlator у программ нет флага «исполняемый» (Winlator ставит его при распаковке) —
+          # ставим сразу всем файлам, как Winlator (иначе proot: «/usr/bin/env is not executable»)
+          find pack/rootfs -type f -exec chmod 755 {} +
+          ls -la pack/rootfs/home/xuser/.wine pack/rootfs/opt/wine/bin pack/rootfs/usr/local/bin
           tar --zstd -xf dxvk.tzst   -C pack/dxwrapper/dxvk
           tar --zstd -xf vkd3d.tzst  -C pack/dxwrapper/vkd3d
           cat > pack/engine.json <<EOF

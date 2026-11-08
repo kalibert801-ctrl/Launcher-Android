@@ -35,7 +35,8 @@ import kotlin.concurrent.thread
 object EngineManager {
 
     /** Какой пакет движка нужен этой версии AleksOS. */
-    const val PACKAGE = 1
+    /** Номер пакета движка, который нужен этой версии AleksOS (engine/VERSION). */
+    const val PACKAGE = 2
     private const val MANIFEST_URL =
         "https://github.com/kalibert801-ctrl/Launcher-Android/releases/download/engine-$PACKAGE/engine-$PACKAGE.json"
 
@@ -45,6 +46,14 @@ object EngineManager {
 
     fun isInstalled(context: Context): Boolean =
         installedManifest(context).isFile && File(rootfsDir(context), "opt/wine/bin").isDirectory
+
+    /** Номер установленного пакета (0 — не установлен). */
+    fun installedPackage(context: Context): Int = runCatching {
+        JSONObject(installedManifest(context).readText()).optInt("package", 0)
+    }.getOrDefault(0)
+
+    /** Установлен старый пакет: нужно обновить движок. */
+    fun isOutdated(context: Context): Boolean = isInstalled(context) && installedPackage(context) < PACKAGE
 
     /** Версии установленных модулей (имя → версия). */
     fun installedModules(context: Context): Map<String, String> = runCatching {

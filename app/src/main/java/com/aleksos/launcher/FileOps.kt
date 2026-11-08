@@ -146,7 +146,9 @@ object FileOps {
     }
 
     fun deleteRecursive(file: File): Boolean {
-        if (file.isDirectory) file.listFiles()?.forEach { deleteRecursive(it) }
+        // ссылки (symlink) удаляем сами по себе, не заходя внутрь — иначе удалится то, на что они указывают
+        val isLink = runCatching { java.nio.file.Files.isSymbolicLink(file.toPath()) }.getOrDefault(false)
+        if (!isLink && file.isDirectory) file.listFiles()?.forEach { deleteRecursive(it) }
         return file.delete()
     }
 
