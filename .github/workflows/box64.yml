@@ -42,14 +42,18 @@ jobs:
             git clone --depth 1 --branch "v$V" https://github.com/ptitSeb/box64 /src
             mkdir /src/build && cd /src/build
             cmake .. -DSD8G2=1 -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
-            make -j$(nproc)
+            make -j$(nproc) || make -j1
             strip box64
             ./box64 --version || true
             cp box64 /out/box64
           ' > build.log 2>&1
           code=$?
           tail -n 40 build.log
-          if [ $code -ne 0 ]; then echo "::error::$(tail -c 1500 build.log | tr '\n' ' ')"; exit $code; fi
+          if [ $code -ne 0 ]; then
+            grep -iE "error|undefined reference|fatal" build.log | grep -v "Error 2" | head -15 > err.txt || true
+            echo "::error::$(tr -s '[:space:]' ' ' < err.txt | cut -c1-3000)"
+            exit $code
+          fi
           set -e
           mkdir -p pkg/usr/local/bin
           cp out/box64 "pkg/usr/local/bin/box64-$V"
