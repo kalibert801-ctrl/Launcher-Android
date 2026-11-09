@@ -261,6 +261,14 @@ object WineRuntime {
         if (!dst.exists() && src.isFile) runCatching { src.copyTo(dst) }
     }
 
+    /** Процессоры Snapdragon с видеочипом Adreno 6xx (для них «sysmem» не нужен — он медленнее). */
+    private fun isAdreno6xx(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return false
+        val soc = android.os.Build.SOC_MODEL.uppercase()
+        return soc in setOf("SM8150", "SM8250", "SM8350", "SM7125", "SM7150", "SM7225", "SM7250",
+            "SM7325", "SM6115", "SM6125", "SM6225", "SM6350", "SM6375")
+    }
+
     /** Переменные окружения Wine (графика, синхронизация, отладка). */
     fun envVars(context: Context): EnvVars {
         val env = EnvVars()
@@ -281,7 +289,8 @@ object WineRuntime {
         env.put("GALLIUM_DRIVER", "zink")
         env.put("ZINK_DESCRIPTORS", "lazy")
         env.put("ZINK_DEBUG", "compact")
-        env.put("TU_DEBUG", "noconform")
+        // Adreno 7xx (SD 8 Gen 1/2/3): режим «sysmem», как в Winlator, иначе Turnip рисует кадр кусками
+        env.put("TU_DEBUG", if (isAdreno6xx()) "noconform" else "noconform,sysmem")
         env.put("TU_OVERRIDE_HEAP_SIZE", "4096")
         env.put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
         env.put("vblank_mode", "0")
