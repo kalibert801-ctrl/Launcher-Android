@@ -75,6 +75,8 @@ class SystemSettings(context: Context) {
             listOf("Авто", "640×480", "800×600", "1024×768", "1280×720", "1920×1080"), 0)
         val FPS_LIMIT = Option("fps", "Ограничение кадров", "Меньше — телефон меньше греется",
             listOf("Без ограничения", "30 кадров", "60 кадров"), 0)
+        val PRESENT = Option("present", "Вывод кадров", "Если картинка игры видна кусками — «Совместимый»",
+            listOf("Совместимый", "DRI3 (быстрее)"), 0)
 
         // Загрузка
         val BOOT_MODE = Option("boot_mode", "Показ загрузки", "Когда показывать загрузку AleksOS",
@@ -85,7 +87,7 @@ class SystemSettings(context: Context) {
             listOf("Включена", "Выключена"), 0)
 
         val ENGINE_OPTIONS = listOf(MEMORY, CPU_CORES, BOX64, BOX64_VERSION, WINDOWS_VERSION)
-        val GRAPHICS_OPTIONS = listOf(GPU_DRIVER, DIRECTX, RESOLUTION, FPS_LIMIT)
+        val GRAPHICS_OPTIONS = listOf(GPU_DRIVER, DIRECTX, RESOLUTION, FPS_LIMIT, PRESENT)
         val BOOT_OPTIONS = listOf(BOOT_MODE, BIOS_WAIT, SPLASH)
         val ALL = ENGINE_OPTIONS + GRAPHICS_OPTIONS + BOOT_OPTIONS
 

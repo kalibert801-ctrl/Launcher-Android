@@ -292,7 +292,13 @@ object WineRuntime {
         // Adreno 7xx (SD 8 Gen 1/2/3): режим «sysmem», как в Winlator, иначе Turnip рисует кадр кусками
         env.put("TU_DEBUG", if (isAdreno6xx()) "noconform" else "noconform,sysmem")
         env.put("TU_OVERRIDE_HEAP_SIZE", "4096")
-        env.put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
+        if (SystemSettings(context).get(SystemSettings.PRESENT) == 1) {
+            env.put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
+        } else {
+            // как «DRI3 выкл» в Winlator: кадр передаётся через общую память целиком (надёжнее)
+            env.put("MESA_VK_WSI_PRESENT_MODE", "immediate")
+            env.put("MESA_VK_WSI_DEBUG", "sw")
+        }
         env.put("vblank_mode", "0")
         directXEnv(context, env)
         // новая версия Box64: включаем перевод AVX/AVX2

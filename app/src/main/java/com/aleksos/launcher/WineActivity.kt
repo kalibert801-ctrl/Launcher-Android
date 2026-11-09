@@ -179,7 +179,7 @@ class WineActivity : Activity() {
             env.addComponent(ALSAServerComponent(UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.ALSA_SERVER_PATH)))
             val launcher = GuestProgramLauncherComponent()
             desktopArg = "/desktop=shell,${screen.first}x${screen.second}"
-            WineRuntime.writeLog("Экран Windows: ${screen.first}x${screen.second}, DirectX: ${SystemSettings(this).valueOf(SystemSettings.DIRECTX)}, Box64: ${SystemSettings(this).valueOf(SystemSettings.BOX64)}")
+            WineRuntime.writeLog("Экран Windows: ${screen.first}x${screen.second}, DirectX: ${SystemSettings(this).valueOf(SystemSettings.DIRECTX)}, Box64: ${SystemSettings(this).valueOf(SystemSettings.BOX64)}, вывод: ${SystemSettings(this).valueOf(SystemSettings.PRESENT)}")
             val handlerExe = File(imageFs.rootDir, "home/xuser/.wine/drive_c/windows/winhandler.exe")
             // winhandler.exe живёт внутри Wine и по команде из AleksOS запускает программы —
             // так все программы работают в одном Wine (отдельные процессы Wine не запускались)
