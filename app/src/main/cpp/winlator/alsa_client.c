@@ -27,7 +27,12 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
     result = AAudio_createStreamBuilder(&builder);
     if (result != AAUDIO_OK) return NULL;
 
-    AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+    // AleksOS: игры под Box64 часто не успевают вовремя подавать звук. Обычный режим (не «низкая
+    // задержка») и запас ~150 мс: рывков меньше, звук отстаёт чуть-чуть
+    int32_t minFrames = sampleRate * 15 / 100;
+    if (bufferSize < minFrames) bufferSize = minFrames;
+    AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_NONE);
+    AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize * 2);
     AAudioStreamBuilder_setFormat(builder, toAAudioFormat(format));
     AAudioStreamBuilder_setChannelCount(builder, channelCount);
     AAudioStreamBuilder_setSampleRate(builder, sampleRate);
