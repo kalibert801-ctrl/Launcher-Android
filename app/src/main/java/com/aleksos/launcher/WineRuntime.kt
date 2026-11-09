@@ -237,7 +237,9 @@ object WineRuntime {
     private fun directXEnv(context: Context, env: EnvVars) {
         if (!dxvkEnabled(context)) return
         env.put("WINEDLLOVERRIDES", "d3d9,d3d10core,d3d11,dxgi,d3d12,d3d12core=n,b")
-        env.put("DXVK_LOG_LEVEL", "none")
+        // info: в журнал попадает видеочип (Turnip или программный) и ошибки DirectX
+        env.put("DXVK_LOG_LEVEL", "info")
+        env.put("DXVK_LOG_PATH", "none")
         env.put("VKD3D_FEATURE_LEVEL", "12_1")
         env.put("DXVK_STATE_CACHE_PATH", "/home/xuser/.cache")
         val fps = when (SystemSettings(context).get(SystemSettings.FPS_LIMIT)) { 1 -> 30; 2 -> 60; else -> 0 }
