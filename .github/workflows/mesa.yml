@@ -55,6 +55,10 @@ jobs:
             sed -i "s/driver_swrast, driver_virgl, driver_asahi\]/driver_swrast, driver_virgl, driver_asahi, driver_zink]/" \
               src/gallium/targets/libgl-xlib/meson.build
             grep -n "driver_zink" src/gallium/targets/libgl-xlib/meson.build
+            # и объявление zink_create_screen для выбора драйвера по GALLIUM_DRIVER=zink
+            H=src/gallium/auxiliary/target-helpers/inline_sw_helper.h
+            sed -i "/^#ifdef GALLIUM_D3D12/i #ifdef GALLIUM_ZINK\n#include \"zink/zink_public.h\"\n#endif\n" $H
+            grep -n -A2 "GALLIUM_ZINK" $H | head -8
             meson setup build --prefix=/usr --libdir=lib/aarch64-linux-gnu -Dbuildtype=release \
               -Dplatforms=x11 -Dglx=xlib -Degl=disabled -Dgbm=disabled -Dglvnd=disabled \
               -Dgallium-drivers=zink,softpipe -Dvulkan-drivers=freedreno -Dfreedreno-kmds=kgsl \
