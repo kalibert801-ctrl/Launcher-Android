@@ -73,7 +73,7 @@ jobs:
           code=$?
           tail -n 60 build.log
           if [ $code -ne 0 ]; then
-            grep -iE "error|ERROR:|undefined reference|fatal|not found|Dependency .* found: NO" build.log | grep -v "Error 2" | head -20 > err.txt || true
+            { grep -E "ERROR:| error:|error: |undefined reference|fatal error|Dependency .* found: NO" build.log | grep -vE "supports arguments|ERROR_MSG|atomic_ops|cunit" | tail -12; tail -n 6 build.log; } > err.txt || true
             echo "::error::$(tr -s '[:space:]' ' ' < err.txt | cut -c1-3500)"
             exit $code
           fi
