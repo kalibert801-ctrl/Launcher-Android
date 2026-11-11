@@ -48,6 +48,9 @@ public class ALSAClient {
         if (!isValidBufferSize()) return;
 
         streamPtr = create(dataType.ordinal(), channelCount, sampleRate, bufferSize);
+        com.winlator.xserver.XDebug.audio(dataType + ", " + sampleRate + " Гц, каналов " + channelCount +
+            ", буфер Wine " + bufferSize + " кадров" + (streamPtr > 0 ? ", AAudio " + getBufferInfo(streamPtr) : ", AAudio НЕ открылся"));
+        statTime = System.currentTimeMillis(); statFrames = 0; statWriteMs = 0; statMaxWriteMs = 0;
         if (streamPtr > 0) start();
     }
 
@@ -86,8 +89,19 @@ public class ALSAClient {
 
         if (playing) {
             int numFrames = data.limit() / frameBytes;
+            long t0 = System.nanoTime();
             int framesWritten = write(streamPtr, data, numFrames);
+            long ms = (System.nanoTime() - t0) / 1000000;
             if (framesWritten > 0) position += framesWritten;
+            // раз в 5 секунд: сколько звука пришло от игры за это время и сколько раз AAudio оставался без звука
+            statFrames += Math.max(framesWritten, 0); statWriteMs += ms; statMaxWriteMs = Math.max(statMaxWriteMs, ms);
+            long now = System.currentTimeMillis();
+            if (now - statTime >= 5000) {
+                int pct = (int)(statFrames * 100L * 1000 / Math.max(1, (now - statTime)) / Math.max(1, sampleRate));
+                com.winlator.xserver.XDebug.audio("за " + (now - statTime) / 1000 + " с пришло " + pct + "% нужного звука, провалов " +
+                    getXRuns(streamPtr) + ", запись ждала " + statWriteMs + " мс (макс " + statMaxWriteMs + ")");
+                statTime = now; statFrames = 0; statWriteMs = 0; statMaxWriteMs = 0;
+            }
             data.rewind();
         }
     }
@@ -147,6 +161,12 @@ public class ALSAClient {
     public int computeLatencyMillis() {
         return (int)(((float)bufferSize / sampleRate) * 1000);
     }
+
+    private long statTime, statFrames, statWriteMs, statMaxWriteMs;
+
+    private native int getXRuns(long streamPtr);
+
+    private native String getBufferInfo(long streamPtr);
 
     private native long create(int format, byte channelCount, int sampleRate, int bufferSize);
 

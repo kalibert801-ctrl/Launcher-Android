@@ -1,5 +1,6 @@
 #include <aaudio/AAudio.h>
 #include <jni.h>
+#include <stdio.h>
 
 #define WAIT_COMPLETION_TIMEOUT 100 * 1000000L
 
@@ -129,4 +130,21 @@ JNIEXPORT void JNICALL
 Java_com_winlator_alsaserver_ALSAClient_close(JNIEnv *env, jobject obj, jlong streamPtr) {
     AAudioStream *aaudioStream = (AAudioStream*)streamPtr;
     if (aaudioStream) AAudioStream_close(aaudioStream);
+}
+JNIEXPORT jint JNICALL
+Java_com_winlator_alsaserver_ALSAClient_getXRuns(JNIEnv *env, jobject obj, jlong streamPtr) {
+    AAudioStream *aaudioStream = (AAudioStream*)streamPtr;
+    return aaudioStream ? AAudioStream_getXRunCount(aaudioStream) : -1;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_winlator_alsaserver_ALSAClient_getBufferInfo(JNIEnv *env, jobject obj, jlong streamPtr) {
+    AAudioStream *s = (AAudioStream*)streamPtr;
+    char text[160];
+    if (!s) return (*env)->NewStringUTF(env, "-");
+    snprintf(text, sizeof(text), "%d Гц, буфер %d из %d кадров, порция %d, режим %d",
+             AAudioStream_getSampleRate(s), AAudioStream_getBufferSizeInFrames(s),
+             AAudioStream_getBufferCapacityInFrames(s), AAudioStream_getFramesPerBurst(s),
+             AAudioStream_getPerformanceMode(s));
+    return (*env)->NewStringUTF(env, text);
 }

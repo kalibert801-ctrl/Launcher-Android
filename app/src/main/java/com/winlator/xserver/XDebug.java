@@ -19,7 +19,21 @@ public final class XDebug {
         s.accept("X: " + line);
     }
 
+    private static int audioLines = 0;
+
+    /** Строки про звук — свой счётчик (до 40), повторы разрешены (это замеры во времени). */
+    public static void audio(String line) {
+        Consumer<String> s = sink;
+        if (s == null) return;
+        synchronized (seen) {
+            if (audioLines >= 40) return;
+            audioLines++;
+        }
+        s.accept("Звук: " + line);
+    }
+
     public static void reset() {
+        synchronized (seen) { audioLines = 0; }
         synchronized (seen) { seen.clear(); }
     }
 }
