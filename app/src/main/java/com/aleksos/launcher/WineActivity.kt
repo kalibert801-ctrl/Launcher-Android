@@ -138,6 +138,7 @@ class WineActivity : Activity() {
         setContentView(root)
         contentFrame = frame
         setupTouch()
+        if (gamePrefs().getBoolean(title.toString(), false)) setGameControls(true)
         setupKeyboardShift(root)
 
         runningTitle = title
@@ -360,6 +361,7 @@ class WineActivity : Activity() {
             maxLines = 1
             setPadding(dp(10), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        bar.addView(barButton("🎮") { toggleGameControls() })
         bar.addView(barButton("⌨") { toggleKeyboard() })
         bar.addView(barButton("☰") { showMenu() })
         bar.addView(barButton("—") { moveTaskToBack(true) })
@@ -380,6 +382,7 @@ class WineActivity : Activity() {
     private fun showMenu() {
         val actions = listOf<Pair<String, () -> Unit>>(
             "Клавиатура" to { toggleKeyboard() },
+            "Игровое управление (джойстик и кнопки)" to { toggleGameControls() },
             "Esc" to { tapKey(KeyEvent.KEYCODE_ESCAPE) },
             "Enter" to { tapKey(KeyEvent.KEYCODE_ENTER) },
             "Журнал Windows Kernel" to { showLog() },
@@ -439,8 +442,45 @@ class WineActivity : Activity() {
 
     private fun toggleKeyboard() {
         val imm = getSystemService(InputMethodManager::class.java) ?: return
+        xServerView.isFocusableInTouchMode = true
         xServerView.requestFocus()
-        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+        val shown = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R &&
+            xServerView.rootWindowInsets?.isVisible(android.view.WindowInsets.Type.ime()) == true
+        if (shown) imm.hideSoftInputFromWindow(xServerView.windowToken, 0)
+        else if (!imm.showSoftInput(xServerView, InputMethodManager.SHOW_FORCED))
+            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+    }
+
+    // ---------- Игровое управление ----------
+
+    private var gameControls: GameControls? = null
+
+    private fun gamePrefs() = getSharedPreferences("game_controls", MODE_PRIVATE)
+
+    private fun toggleGameControls() {
+        val show = gameControls == null
+        setGameControls(show)
+        gamePrefs().edit().putBoolean(title.toString(), show).apply()
+        if (show) android.widget.Toast.makeText(this, "Джойстик — ходьба (W/A/S/D), кнопки держатся, пока палец на них. Скрыть — 🎮", android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    private fun setGameControls(show: Boolean) {
+        val frame = contentFrame ?: return
+        gameControls?.let { it.releaseAll(); frame.removeView(it) }
+        gameControls = null
+        if (!show) return
+        val gc = GameControls(this,
+            key = { code, down ->
+                if (::xServer.isInitialized) xServer.keyboard.onKeyEvent(KeyEvent(if (down) KeyEvent.ACTION_DOWN else KeyEvent.ACTION_UP, code))
+            },
+            mouseLeft = { down ->
+                if (::xServer.isInitialized) {
+                    if (down) xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT)
+                    else xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT)
+                }
+            })
+        frame.addView(gc, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        gameControls = gc
     }
 
     private fun tapKey(keyCode: Int) {

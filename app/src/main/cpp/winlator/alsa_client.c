@@ -28,8 +28,8 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
     if (result != AAUDIO_OK) return NULL;
 
     // AleksOS: игры под Box64 часто не успевают вовремя подавать звук. Обычный режим (не «низкая
-    // задержка») и запас ~150 мс: рывков меньше, звук отстаёт чуть-чуть
-    int32_t minFrames = sampleRate * 15 / 100;
+    // задержка») и запас ~250 мс: рывков меньше, звук отстаёт чуть-чуть
+    int32_t minFrames = sampleRate / 4;
     if (bufferSize < minFrames) bufferSize = minFrames;
     AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_NONE);
     AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize * 2);
@@ -51,9 +51,18 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
     return stream;
 }
 
+/* AleksOS: дописываем все кадры, а не сколько успелось за 100 мс, — иначе куски звука терялись (треск) */
 static int aaudioWrite(AAudioStream *aaudioStream, void *buffer, int numFrames) {
-    aaudio_result_t framesWritten = AAudioStream_write(aaudioStream, buffer, numFrames, WAIT_COMPLETION_TIMEOUT);
-    return framesWritten;
+    aaudio_format_t format = AAudioStream_getFormat(aaudioStream);
+    int frameBytes = AAudioStream_getChannelCount(aaudioStream) * (format == AAUDIO_FORMAT_PCM_I16 ? 2 : 4);
+    char *data = (char*)buffer;
+    int total = 0;
+    for (int tries = 0; total < numFrames && tries < 20; tries++) {
+        aaudio_result_t n = AAudioStream_write(aaudioStream, data + (long)total * frameBytes, numFrames - total, WAIT_COMPLETION_TIMEOUT);
+        if (n < 0) return total > 0 ? total : n;
+        total += n;
+    }
+    return total;
 }
 
 static void aaudioStart(AAudioStream *aaudioStream) {
