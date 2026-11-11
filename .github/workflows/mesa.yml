@@ -9,7 +9,7 @@ name: Графика (Turnip + Zink, новая Mesa)
 on:
   push:
     branches: [main]
-    paths: [components/MESA]
+    paths: [components/MESA, .github/workflows/mesa.yml]
   workflow_dispatch:
 
 permissions:
