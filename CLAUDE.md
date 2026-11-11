@@ -76,6 +76,15 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
    Box64 0.4.4 (AVX2, нужен новым играм, напр. Vice City Stories): `.github/workflows/box64.yml` собирает
    из исходников в Debian bullseye arm64 (glibc ≤ 2.29; -DARM64=1, т.к. gcc 10 не знает armv9-a для SD8G2) →
    Release box64-0.4.4; ставится из «Компонентов Windows» в usr/local/bin/box64-0.4.4, BIOS «Версия Box64», BOX64_AVX=2.
+   ✅ Vice City Stories (VCSNative.exe, OpenGL) запустилась на Box64 0.4.4, но тормозит (AVX2) и кадр виден частично.
+   Графика: в пакете ядра Turnip 24.1 + Zink из Mesa 22.2.5 (libGL.so.1.7.0 «xlib» + zink, как в Winlator).
+   Adreno 7xx: TU_DEBUG=noconform,sysmem (без sysmem кадр рисуется кусками). BIOS «Вывод кадров»: «Совместимый»
+   (по умолчанию) = MESA_VK_WSI_DEBUG=sw, как «DRI3 выкл» в Winlator. Звук: AAudio без low-latency, запас 150 мс.
+   Новая Mesa 25.0.7: `.github/workflows/mesa.yml` (bullseye arm64, libdrm 2.4.124 статически, патч libgl-xlib:
+   driver_zink + idep_xmlconfig и include zink_public.h в inline_sw_helper.h) → Release mesa-25.0.7; ставится из
+   «Компонентов Windows» в usr/lib/aarch64-linux-gnu/aleksos-mesa-25.0.7, BIOS «Графический драйвер» копирует
+   её поверх libGL.so.1.7.0 / libvulkan_freedreno.so (оригиналы в aleksos-mesa-orig). Не проверено на телефоне.
+   Журнал ядра пишет строки X-сервера (`XDebug`): размеры окон и PutImage/ShmPutImage — для поиска обрезки кадра.
 3. 🔶 Иконки из .exe (`ExeIcon.kt`), ярлыки .lnk (`LnkFile.kt`: LinkInfo и IDList), установка: setup.exe запускается
    как обычная программа, новые ярлыки из «Пуска» Wine (`InstalledPrograms.kt`) сами добавляются на стол.
    Не проверено на телефоне с настоящим установщиком.
