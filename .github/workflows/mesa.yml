@@ -1,0 +1,104 @@
+name: Графика (Turnip + Zink, новая Mesa)
+
+# Собирает из исходников Mesa (mesa3d.org, MIT) два драйвера для Windows Kernel AleksOS:
+#  - Turnip: Vulkan для видеочипов Adreno (через KGSL — так видеочип доступен на Android);
+#  - Zink: OpenGL поверх Vulkan, в виде libGL для окон X11 (как в Winlator: «xlib» + zink).
+# Сборка в Debian bullseye ARM64: библиотеки как в образе ядра (glibc 2.31).
+# Результат — Release mesa-<версия> (prerelease); AleksOS ставит его из «Компонентов Windows».
+
+on:
+  push:
+    branches: [main]
+    paths: [components/MESA]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Версия
+        run: echo "V=$(tr -d '[:space:]' < components/MESA)" >> "$GITHUB_ENV"
+
+      - name: Собрать в Debian bullseye (ARM64)
+        run: |
+          mkdir -p out
+          set +e
+          docker run --rm -v "$PWD/out:/out" -e V="$V" arm64v8/debian:bullseye bash -c '
+            set -e
+            echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list
+            echo "deb http://archive.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list
+            echo "deb http://archive.debian.org/debian-security bullseye-security main" >> /etc/apt/sources.list
+            rm -f /etc/apt/sources.list.d/* 2>/dev/null || true
+            apt-get -o Acquire::Check-Valid-Until=false update
+            apt-get install -y --no-install-recommends ca-certificates curl xz-utils gcc g++ make pkg-config \
+              python3 python3-pip python3-setuptools bison flex \
+              libx11-dev libxext-dev libxfixes-dev libxrandr-dev libx11-xcb-dev libxcb1-dev libxcb-shm0-dev \
+              libxcb-dri3-dev libxcb-present-dev libxcb-sync-dev libxcb-randr0-dev libxcb-xfixes0-dev \
+              libxcb-glx0-dev libxshmfence-dev libxxf86vm-dev libexpat1-dev zlib1g-dev libzstd-dev xz-utils
+            pip3 install -q "meson>=1.4,<1.6" ninja mako pyyaml packaging
+            meson --version; gcc --version | head -1
+            # libdrm в bullseye старая (2.4.104, а Mesa нужна ≥ 2.4.109): собираем новую статически,
+            # чтобы она вошла внутрь драйвера и не спорила с libdrm образа
+            curl -fsSL https://dri.freedesktop.org/libdrm/libdrm-2.4.124.tar.xz -o /drm.tar.xz
+            mkdir /drm && tar -xJf /drm.tar.xz -C /drm --strip-components=1
+            (cd /drm && meson setup b --prefix=/usr/local --libdir=lib -Ddefault_library=static -Db_staticpic=true                -Dintel=disabled -Dradeon=disabled -Damdgpu=disabled -Dnouveau=disabled -Dvmwgfx=disabled                -Dfreedreno=enabled -Dvc4=disabled -Detnaviv=disabled -Dexynos=disabled -Domap=disabled                -Dtegra=disabled -Dcairo-tests=disabled -Dvalgrind=disabled -Dman-pages=disabled -Dtests=false                && ninja -C b install)
+            export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+            curl -fsSL "https://archive.mesa3d.org/mesa-$V.tar.xz" -o /mesa.tar.xz
+            mkdir /src && tar -xJf /mesa.tar.xz -C /src --strip-components=1
+            cd /src
+            # как в Winlator: libGL для X11 (xlib) должен уметь рисовать через zink
+            sed -i "s/driver_swrast, driver_virgl, driver_asahi\]/driver_swrast, driver_virgl, driver_asahi, driver_zink]/" \
+              src/gallium/targets/libgl-xlib/meson.build
+            grep -n "driver_zink" src/gallium/targets/libgl-xlib/meson.build
+            meson setup build --prefix=/usr --libdir=lib/aarch64-linux-gnu -Dbuildtype=release \
+              -Dplatforms=x11 -Dglx=xlib -Degl=disabled -Dgbm=disabled -Dglvnd=disabled \
+              -Dgallium-drivers=zink,softpipe -Dvulkan-drivers=freedreno -Dfreedreno-kmds=kgsl \
+              -Dgles1=disabled -Dgles2=disabled -Dllvm=disabled -Dvalgrind=disabled -Dlibunwind=disabled \
+              -Dlmsensors=disabled -Dzstd=enabled -Dbuild-tests=false -Dvideo-codecs= -Dtools= \
+              -Dvulkan-layers= -Dxmlconfig=disabled -Dshader-cache=enabled
+            ninja -C build
+            DESTDIR=/inst ninja -C build install
+            find /inst -name "*.so*" -o -name "*.json" | sort
+            cp -L /inst/usr/lib/aarch64-linux-gnu/libGL.so.1 /out/libGL.so.1.7.0
+            cp -L /inst/usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so /out/libvulkan_freedreno.so
+            # этих библиотек нет в образе ядра — кладём их рядом
+            cp -L /usr/lib/aarch64-linux-gnu/libxshmfence.so.1 /usr/lib/aarch64-linux-gnu/libxcb-xfixes.so.0               /usr/lib/aarch64-linux-gnu/libxcb-sync.so.1 /out/
+            strip /out/*.so*
+          ' > build.log 2>&1
+          code=$?
+          tail -n 60 build.log
+          if [ $code -ne 0 ]; then
+            grep -iE "error|ERROR:|undefined reference|fatal|not found|Dependency .* found: NO" build.log | grep -v "Error 2" | head -20 > err.txt || true
+            echo "::error::$(tr -s '[:space:]' ' ' < err.txt | cut -c1-3500)"
+            exit $code
+          fi
+          set -e
+          D="pkg/usr/lib/aarch64-linux-gnu/aleksos-mesa-$V"
+          mkdir -p "$D"
+          cp out/libGL.so.1.7.0 out/libvulkan_freedreno.so "$D/"
+          # недостающие системные библиотеки — сразу в общую папку библиотек образа
+          cp out/libxshmfence.so.1 out/libxcb-xfixes.so.0 pkg/usr/lib/aarch64-linux-gnu/
+          chmod 755 "$D"/*
+          # какие системные библиотеки нужны (проверка совместимости с образом ядра)
+          for f in "$D"/* pkg/usr/lib/aarch64-linux-gnu/*.so*; do echo "== $f"; readelf -d "$f" | grep NEEDED; done
+          tar --format=gnu --owner=0 --group=0 -C pkg -czf "mesa-$V.tar.gz" .
+          SIZE=$(stat -c %s "mesa-$V.tar.gz"); SHA=$(sha256sum "mesa-$V.tar.gz" | cut -d' ' -f1)
+          echo "{\"version\":\"$V\",\"url\":\"https://github.com/${{ github.repository }}/releases/download/mesa-$V/mesa-$V.tar.gz\",\"size\":$SIZE,\"sha256\":\"$SHA\"}" > "mesa-$V.json"
+          cat "mesa-$V.json"
+
+      - name: Опубликовать
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mesa-${{ env.V }}
+          name: Mesa ${{ env.V }} (Turnip + Zink) для AleksOS
+          body: Mesa ${{ env.V }} (MIT, mesa3d.org) — Turnip (Vulkan для Adreno, KGSL) и Zink (OpenGL через Vulkan, libGL xlib), собраны для Windows Kernel AleksOS.
+          files: |
+            mesa-${{ env.V }}.tar.gz
+            mesa-${{ env.V }}.json
+          prerelease: true
+          make_latest: false
