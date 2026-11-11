@@ -77,6 +77,7 @@ object WineRuntime {
         installRussianLocale(context, rootfs)
         runCatching { applyDirectX(context, rootfs) }.onFailure { writeLog("DirectX: $it") }
         runCatching { applyBox64Version(context, rootfs) }.onFailure { writeLog("Box64: $it") }
+        runCatching { applyGraphicsDriver(context, rootfs) }.onFailure { writeLog("Графика: $it") }
         runCatching { setAudioDriver(rootfs) }.onFailure { writeLog("Звук: $it") }
 
         File(rootfs, "tmp").mkdirs()
@@ -193,6 +194,46 @@ object WineRuntime {
         want.copyTo(current, overwrite = true)
         Os.chmod(current.path, 493)
         writeLog("Box64: ${if (want == old) "0.2.9" else BOX64_NEW}")
+    }
+
+    // ---------- Графический драйвер (BIOS → Графика → «Графический драйвер») ----------
+
+    const val MESA_NEW = "25.0.7"
+    private const val LIB64 = "usr/lib/aarch64-linux-gnu"
+    private val MESA_FILES = listOf("libGL.so.1.7.0", "libvulkan_freedreno.so")
+
+    fun mesaNewInstalled(context: Context) =
+        File(EngineManager.rootfsDir(context), "$LIB64/aleksos-mesa-$MESA_NEW/libvulkan_freedreno.so").isFile
+
+    /** Какая Mesa будет работать: новая, если выбрана в BIOS и установлена (иначе null — исходная). */
+    fun mesaVersion(context: Context): String? =
+        if (SystemSettings(context).get(SystemSettings.GPU_DRIVER) == 1 && mesaNewInstalled(context)) MESA_NEW else null
+
+    /**
+     * Turnip (libvulkan_freedreno.so) и Zink (libGL.so.1.7.0) лежат на своих обычных местах;
+     * исходные из пакета ядра сохраняются в aleksos-mesa-orig, выбранный набор копируется поверх.
+     */
+    private fun applyGraphicsDriver(context: Context, rootfs: File) {
+        val lib = File(rootfs, LIB64)
+        val orig = File(lib, "aleksos-mesa-orig")
+        if (!orig.isDirectory) {
+            orig.mkdirs()
+            for (name in MESA_FILES) File(lib, name).takeIf { it.isFile }?.copyTo(File(orig, name), overwrite = true)
+        }
+        val ver = mesaVersion(context)
+        val want = if (ver != null) "mesa-$ver" else "orig"
+        val marker = File(lib, "aleksos-mesa.txt")
+        if (marker.isFile && marker.readText() == want) return
+        val src = if (ver != null) File(lib, "aleksos-mesa-$ver") else orig
+        for (name in MESA_FILES) {
+            val from = File(src, name)
+            if (!from.isFile) continue
+            val to = File(lib, name)
+            from.copyTo(to, overwrite = true)
+            Os.chmod(to.path, 493)
+        }
+        marker.writeText(want)
+        writeLog("Графика: ${if (ver != null) "Turnip + Zink $ver" else "Turnip 24.1 + Zink 22"}")
     }
 
     // ---------- DirectX для игр: DXVK (DirectX 9–11 → Vulkan) и VKD3D (DirectX 12 → Vulkan) ----------

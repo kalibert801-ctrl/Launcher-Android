@@ -67,8 +67,8 @@ class SystemSettings(context: Context) {
             listOf("Windows XP", "Windows 7", "Windows 10"), 2)
 
         // Графика
-        val GPU_DRIVER = Option("gpu", "Графический драйвер", "Turnip — быстрый драйвер для Adreno",
-            listOf("Turnip (Adreno)", "VirGL", "Системный"), 0)
+        val GPU_DRIVER = Option("gpu2", "Графический драйвер", "Новый — Turnip и Zink из Mesa 25 (ставится в «Компонентах Windows»)",
+            listOf("Turnip 24.1 + Zink 22 (стабильный)", "Turnip + Zink 25.0 (новый)"), 0)
         val DIRECTX = Option("directx", "DirectX", "DXVK — быстрее в играх, WineD3D — совместимее",
             listOf("DXVK", "WineD3D"), 0)
         val RESOLUTION = Option("resolution", "Разрешение экрана", "Для старых игр лучше 800×600",

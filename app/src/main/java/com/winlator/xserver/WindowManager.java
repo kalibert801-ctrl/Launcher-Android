@@ -261,6 +261,7 @@ public class WindowManager extends XResourceManager {
         boolean overrideRedirect = window.attributes.isOverrideRedirect();
         if (!parent.hasEventListenerFor(Event.SUBSTRUCTURE_REDIRECT) || overrideRedirect) {
             changeWindowGeometry(window, x, y, width, height);
+            if (width >= 200 && height >= 150) XDebug.log("окно → " + width + "x" + height + " в " + x + "," + y);
 
             window.setBorderWidth(borderWidth);
             if (stackMode != null) changeWindowZOrder(stackMode, window, sibling);

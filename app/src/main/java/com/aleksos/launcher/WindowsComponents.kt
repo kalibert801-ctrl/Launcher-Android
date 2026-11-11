@@ -52,6 +52,7 @@ object WindowsComponents {
         return when (id) {
             "winemono" -> File(windows, "mono/mono-2.0").isDirectory
             "box64new" -> WineRuntime.box64NewInstalled(context)
+            "mesanew" -> WineRuntime.mesaNewInstalled(context)
             "vcrun2022_x86" -> isNative(File(windows, "syswow64/msvcp140.dll"))
             "vcrun2022_x64" -> isNative(File(windows, "system32/msvcp140.dll"))
             else -> prefs(context).getBoolean(id, false)
@@ -135,6 +136,7 @@ object WindowsComponents {
                     val target = if (c.intoRootfs) EngineManager.rootfsDir(activity) else File(WineRuntime.driveC(activity), "windows")
                     GZIPInputStream(file.inputStream().buffered()).use { TarExtractor(target) { false }.extract(it) {} }
                     if (c.id == "box64new") SystemSettings(activity).saveAll(mapOf(SystemSettings.BOX64_VERSION.key to 1))
+                    if (c.id == "mesanew") SystemSettings(activity).saveAll(mapOf(SystemSettings.GPU_DRIVER.key to 1))
                     file.delete()
                     setNativeOverrides(activity, c.dlls)
                     prefs(activity).edit().putBoolean(c.id, true).apply()
@@ -151,6 +153,8 @@ object WindowsComponents {
                     } else {
                         AosDialog(activity).title(c.name).message(if (c.id == "box64new")
                             "Box64 ${WineRuntime.BOX64_NEW} установлен ✔\n\nОн уже включён. Вернуть старую версию: BIOS → Kernel → «Версия Box64»."
+                            else if (c.id == "mesanew")
+                            "Новая графика (Mesa ${WineRuntime.MESA_NEW}) установлена ✔\n\nОна уже включена. Вернуть старую: BIOS → Графика → «Графический драйвер»."
                             else "Компонент установлен ✔").button("OK", primary = true).show()
                     }
                 }.onFailure {
@@ -162,7 +166,15 @@ object WindowsComponents {
         }
     }
 
-    private fun loadList(): List<Component> = loadBox64() + loadDlls()
+    private fun loadList(): List<Component> = loadBox64() + loadMesa() + loadDlls()
+
+    /** Новая графика: Turnip + Zink из Mesa (собирает .github/workflows/mesa.yml, Release mesa-<версия>). */
+    private fun loadMesa(): List<Component> = runCatching {
+        val v = WineRuntime.MESA_NEW
+        val o = JSONObject(httpText("$REPO/mesa-$v/mesa-$v.json"))
+        listOf(Component("mesanew", "Графика Mesa $v (Turnip + Zink)", "Новые драйверы видеочипа Adreno: лучше поддержка Adreno 7xx и OpenGL-игр",
+            o.getString("url"), o.getLong("size"), o.getString("sha256"), emptyList(), intoRootfs = true))
+    }.getOrDefault(emptyList())
 
     /** Новый Box64 (собирает .github/workflows/box64.yml, Release box64-<версия>). */
     private fun loadBox64(): List<Component> = runCatching {

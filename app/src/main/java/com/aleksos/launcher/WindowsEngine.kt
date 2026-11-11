@@ -32,7 +32,7 @@ object WindowsEngine {
             Module("Box64", "x86-64 → ARM64", WineRuntime.box64Version(context) ?: v["Box64"]),
             Module("DXVK", "DirectX 9–11 → Vulkan", v["DXVK"]),
             Module("VKD3D", "DirectX 12 → Vulkan", v["VKD3D"]),
-            Module("Turnip", "Vulkan для Adreno", v["Turnip"]),
+            Module("Turnip", "Vulkan для Adreno", WineRuntime.mesaVersion(context) ?: v["Turnip"]),
             Module("X-сервер", "окна программ", if (v.isNotEmpty()) "AleksOS" else null),
             Module("Звук", "ALSA → AAudio", if (v.isNotEmpty()) "AleksOS" else null),
         )

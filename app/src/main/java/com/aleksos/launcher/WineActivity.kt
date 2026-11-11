@@ -1,5 +1,7 @@
 package com.aleksos.launcher
 
+import com.winlator.xserver.XDebug
+import java.util.function.Consumer
 import com.winlator.winhandler.WinHandler
 import java.io.File
 import android.app.Activity
@@ -169,6 +171,8 @@ class WineActivity : Activity() {
     private fun startWine(command: String, screen: Pair<Int, Int>) {
         try {
             WineRuntime.startLog(this, "$title: $command")
+            XDebug.reset()
+            XDebug.sink = Consumer { WineRuntime.writeLog(it) }
             WineRuntime.prepareDrives(this)
             val imageFs = ImageFs(EngineManager.rootfsDir(this))
             val rootPath = imageFs.rootDir.path

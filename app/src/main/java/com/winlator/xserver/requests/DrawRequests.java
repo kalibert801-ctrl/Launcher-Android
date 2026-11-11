@@ -44,6 +44,8 @@ public abstract class DrawRequests {
             throw new UnsupportedOperationException("GC Function other than COPY is not supported.");
         }
 
+        if (width >= 64 && height >= 16) com.winlator.xserver.XDebug.log("PutImage " + format + " " + width + "x" + height +
+            " в " + dstX + "," + dstY + " на " + drawable.width + "x" + drawable.height);
         switch (format) {
             case BITMAP:
                 if (leftPad != 0) throw new UnsupportedOperationException("PutImage.leftPad cannot be != 0.");

@@ -49,6 +49,7 @@ public abstract class WindowRequests {
         Bitmask valueMask = new Bitmask(inputStream.readInt());
 
         Window window = client.xServer.windowManager.createWindow(windowId, parent, x, y, width, height, windowClass, visual, depth, client);
+        if (width >= 200 && height >= 150) com.winlator.xserver.XDebug.log("окно " + width + "x" + height + " в " + x + "," + y);
         window.setBorderWidth(borderWidth);
         if (!valueMask.isEmpty()) window.attributes.update(valueMask, inputStream, client);
         client.setEventListenerForWindow(window, window.attributes.getEventMask());
