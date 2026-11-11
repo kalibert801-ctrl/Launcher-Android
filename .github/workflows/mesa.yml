@@ -52,7 +52,7 @@ jobs:
             mkdir /src && tar -xJf /mesa.tar.xz -C /src --strip-components=1
             cd /src
             # как в Winlator: libGL для X11 (xlib) должен уметь рисовать через zink
-            sed -i "s/driver_swrast, driver_virgl, driver_asahi\]/driver_swrast, driver_virgl, driver_asahi, driver_zink]/" \
+            sed -i "s/driver_swrast, driver_virgl, driver_asahi\]/driver_swrast, driver_virgl, driver_asahi, driver_zink, idep_xmlconfig]/" \
               src/gallium/targets/libgl-xlib/meson.build
             grep -n "driver_zink" src/gallium/targets/libgl-xlib/meson.build
             # и объявление zink_create_screen для выбора драйвера по GALLIUM_DRIVER=zink
