@@ -34,7 +34,7 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
     int32_t minFrames = sampleRate * 12 / 100;
     if (bufferSize < minFrames) bufferSize = minFrames;
     AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
-    AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize * 2);
+    AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize * 4);
     AAudioStreamBuilder_setFormat(builder, toAAudioFormat(format));
     AAudioStreamBuilder_setChannelCount(builder, channelCount);
     AAudioStreamBuilder_setSampleRate(builder, sampleRate);
@@ -45,7 +45,14 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
         return NULL;
     }
 
-    AAudioStream_setBufferSizeInFrames(stream, bufferSize);
+    // AleksOS: Android часто не даёт быстрый режим (44100 Гц ≠ 48000 у телефона) и берёт звук
+    // крупными порциями; запас в одну порцию = провал при любой заминке. Берём весь возможный запас.
+    {
+        int32_t burst = AAudioStream_getFramesPerBurst(stream);
+        int32_t want = bufferSize;
+        if (burst > 0 && want < burst * 3) want = burst * 3;
+        AAudioStream_setBufferSizeInFrames(stream, want);
+    }
 
     result = AAudioStreamBuilder_delete(builder);
     if (result != AAUDIO_OK) return NULL;

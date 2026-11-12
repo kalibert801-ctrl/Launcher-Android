@@ -40,6 +40,20 @@ public class ALSAClient {
         streamPtr = 0;
     }
 
+    /** Поток AAudio сломался (смена наушников/динамика, ошибка) — открываем новый, звук не пропадает. */
+    private void recreateStream(int code) {
+        if (System.currentTimeMillis() - lastRecreate < 1000) return;
+        lastRecreate = System.currentTimeMillis();
+        if (streamPtr > 0) { stop(streamPtr); close(streamPtr); }
+        playing = false;
+        streamPtr = create(dataType.ordinal(), channelCount, sampleRate, bufferSize);
+        com.winlator.xserver.XDebug.audio("поток AAudio сломался (код " + code + ") — " +
+            (streamPtr > 0 ? "открыт заново: " + getBufferInfo(streamPtr) : "открыть заново не удалось"));
+        if (streamPtr > 0) start();
+    }
+
+    private long lastRecreate;
+
     private DataType streamType;
     private byte streamChannels;
     private int streamRate;
@@ -110,6 +124,7 @@ public class ALSAClient {
             int framesWritten = write(streamPtr, data, numFrames);
             long ms = (System.nanoTime() - t0) / 1000000;
             if (framesWritten > 0) position += framesWritten;
+            else if (framesWritten < 0) recreateStream(framesWritten);
             // раз в 5 секунд: сколько звука пришло от игры за это время и сколько раз AAudio оставался без звука
             statFrames += Math.max(framesWritten, 0); statWriteMs += ms; statMaxWriteMs = Math.max(statMaxWriteMs, ms);
             long now = System.currentTimeMillis();
