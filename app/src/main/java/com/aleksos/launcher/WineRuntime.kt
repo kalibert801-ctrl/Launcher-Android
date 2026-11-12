@@ -78,7 +78,7 @@ object WineRuntime {
         runCatching { applyDirectX(context, rootfs) }.onFailure { writeLog("DirectX: $it") }
         runCatching { applyBox64Version(context, rootfs) }.onFailure { writeLog("Box64: $it") }
         runCatching { applyGraphicsDriver(context, rootfs) }.onFailure { writeLog("Графика: $it") }
-        runCatching { setAudioDriver(rootfs) }.onFailure { writeLog("Звук: $it") }
+        runCatching { setAudioDriver(context, rootfs) }.onFailure { writeLog("Звук: $it") }
 
         File(rootfs, "tmp").mkdirs()
         File(rootfs, "tmp").listFiles()?.forEach { FileOps.deleteRecursive(it) }
@@ -141,8 +141,13 @@ object WineRuntime {
      * Звук: Wine выводит звук через ALSA, а ALSA-модуль из Winlator передаёт его в AleksOS
      * (ALSAServerComponent → AAudio Android). В реестре Wine: HKCU\Software\Wine\Drivers, Audio = alsa.
      */
-    private fun setAudioDriver(rootfs: File) {
-        setRegistryValues(File(rootfs, "home/xuser/.wine/user.reg"), "Software\\\\Wine\\\\Drivers", mapOf("\"Audio\"" to "\"alsa\""))
+    /** PulseAudio выбран в BIOS («Звук»)? */
+    fun usePulseAudio(context: Context) = SystemSettings(context).get(SystemSettings.AUDIO) == 0
+
+    private fun setAudioDriver(context: Context, rootfs: File) {
+        val driver = if (usePulseAudio(context)) "pulse" else "alsa"
+        setRegistryValues(File(rootfs, "home/xuser/.wine/user.reg"), "Software\\\\Wine\\\\Drivers", mapOf("\"Audio\"" to "\"$driver\""))
+        writeLog("Звук: ${if (driver == "pulse") "PulseAudio" else "ALSA"}")
     }
 
     /**
@@ -320,8 +325,13 @@ object WineRuntime {
         env.put("LC_ALL", locale)
         env.put("LANG", locale)
         env.put("WINEESYNC", "1")
-        env.put("ANDROID_ALSA_SERVER", UnixSocketConfig.ALSA_SERVER_PATH)
-        env.put("ANDROID_ASERVER_USE_SHM", "true")
+        if (usePulseAudio(context)) {
+            env.put("PULSE_SERVER", UnixSocketConfig.PULSE_SERVER_PATH)
+            env.put("PULSE_LATENCY_MSEC", "60")
+        } else {
+            env.put("ANDROID_ALSA_SERVER", UnixSocketConfig.ALSA_SERVER_PATH)
+            env.put("ANDROID_ASERVER_USE_SHM", "true")
+        }
         env.put("MESA_DEBUG", "silent")
         env.put("MESA_NO_ERROR", "1")
         env.put("MESA_SHADER_CACHE_DISABLE", "false")

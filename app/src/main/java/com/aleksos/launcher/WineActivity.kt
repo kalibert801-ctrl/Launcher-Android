@@ -38,6 +38,7 @@ import com.winlator.xenvironment.components.GuestProgramLauncherComponent
 import com.winlator.xenvironment.components.SysVSharedMemoryComponent
 import com.winlator.xenvironment.components.XServerComponent
 import com.winlator.xenvironment.components.ALSAServerComponent
+import com.winlator.xenvironment.components.PulseAudioComponent
 import com.winlator.xserver.Pointer
 import com.winlator.xserver.ScreenInfo
 import com.winlator.xserver.XServer
@@ -181,7 +182,10 @@ class WineActivity : Activity() {
             env.addComponent(SysVSharedMemoryComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.SYSVSHM_SERVER_PATH)))
             env.addComponent(XServerComponent(xServer, UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.XSERVER_PATH)))
             // звук: ALSA внутри Wine → AAudio Android
-            env.addComponent(ALSAServerComponent(UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.ALSA_SERVER_PATH)))
+            if (WineRuntime.usePulseAudio(this))
+                env.addComponent(PulseAudioComponent(UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.PULSE_SERVER_PATH)))
+            else
+                env.addComponent(ALSAServerComponent(UnixSocketConfig.createSocket(rootPath, UnixSocketConfig.ALSA_SERVER_PATH)))
             val launcher = GuestProgramLauncherComponent()
             desktopArg = "/desktop=shell,${screen.first}x${screen.second}"
             WineRuntime.writeLog("Экран Windows: ${screen.first}x${screen.second}, DirectX: ${SystemSettings(this).valueOf(SystemSettings.DIRECTX)}, Box64: ${SystemSettings(this).valueOf(SystemSettings.BOX64)}, вывод: ${SystemSettings(this).valueOf(SystemSettings.PRESENT)}")
