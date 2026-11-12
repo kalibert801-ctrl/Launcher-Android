@@ -40,14 +40,31 @@ public class ALSAClient {
         streamPtr = 0;
     }
 
+    private DataType streamType;
+    private byte streamChannels;
+    private int streamRate;
+
     public void prepare() {
         position = 0;
         frameBytes = channelCount * dataType.byteCount;
+
+        // AleksOS: Wine вызывает prepare после каждой заминки. Если формат тот же — оставляем
+        // открытый поток AAudio (пересоздание давало щелчок и провал звука)
+        if (streamPtr > 0 && dataType == streamType && channelCount == streamChannels && sampleRate == streamRate) {
+            if (sharedBuffer != null) {
+                SysVSharedMemory.unmapSHMSegment(sharedBuffer, sharedBuffer.capacity());
+                sharedBuffer = null;
+            }
+            reprepares++;
+            start();
+            return;
+        }
         release();
 
         if (!isValidBufferSize()) return;
 
         streamPtr = create(dataType.ordinal(), channelCount, sampleRate, bufferSize);
+        streamType = dataType; streamChannels = channelCount; streamRate = sampleRate;
         com.winlator.xserver.XDebug.audio(dataType + ", " + sampleRate + " Гц, каналов " + channelCount +
             ", буфер Wine " + bufferSize + " кадров" + (streamPtr > 0 ? ", AAudio " + getBufferInfo(streamPtr) : ", AAudio НЕ открылся"));
         statTime = System.currentTimeMillis(); statFrames = 0; statWriteMs = 0; statMaxWriteMs = 0;
@@ -99,8 +116,8 @@ public class ALSAClient {
             if (now - statTime >= 5000) {
                 int pct = (int)(statFrames * 100L * 1000 / Math.max(1, (now - statTime)) / Math.max(1, sampleRate));
                 com.winlator.xserver.XDebug.audio("за " + (now - statTime) / 1000 + " с пришло " + pct + "% нужного звука, провалов " +
-                    getXRuns(streamPtr) + ", запись ждала " + statWriteMs + " мс (макс " + statMaxWriteMs + ")");
-                statTime = now; statFrames = 0; statWriteMs = 0; statMaxWriteMs = 0;
+                    getXRuns(streamPtr) + ", перезапусков Wine " + reprepares + ", запись ждала " + statWriteMs + " мс (макс " + statMaxWriteMs + ")");
+                statTime = now; statFrames = 0; statWriteMs = 0; statMaxWriteMs = 0; reprepares = 0;
             }
             data.rewind();
         }
@@ -163,6 +180,7 @@ public class ALSAClient {
     }
 
     private long statTime, statFrames, statWriteMs, statMaxWriteMs;
+    private int reprepares;
 
     private native int getXRuns(long streamPtr);
 
