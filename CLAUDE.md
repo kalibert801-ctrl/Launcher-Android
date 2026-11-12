@@ -84,6 +84,12 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
    driver_zink + idep_xmlconfig и include zink_public.h в inline_sw_helper.h) → Release mesa-25.0.7; ставится из
    «Компонентов Windows» в usr/lib/aarch64-linux-gnu/aleksos-mesa-25.0.7, BIOS «Графический драйвер» копирует
    её поверх libGL.so.1.7.0 / libvulkan_freedreno.so (оригиналы в aleksos-mesa-orig). Не проверено на телефоне.
+   ✅ Mesa 25.0.7 на телефоне: VCS рисует на весь экран (игра сама рисует через Vulkan GE).
+   Звук: ALSA-сервер (AAudio) хрипел — Wine перезапускал поток (prepare) десятки раз в секунду: AAudio без
+   быстрого режима (44100 ≠ 48000) брал порции до 240 мс, а запрос большой capacity делал их ещё больше.
+   Поэтому BIOS → Графика → «Звук»: PulseAudio (по умолчанию, `PulseAudioComponent`, libpulseaudio.so и др. в
+   jniLibs, модули в assets/pulseaudio, реестр Audio=pulse, PULSE_LATENCY_MSEC=60) или ALSA. Журнал пишет строки «Звук:».
+   Экранное игровое управление: `GameControls.kt` (кнопка 🎮 в заголовке окна).
    Журнал ядра пишет строки X-сервера (`XDebug`): размеры окон и PutImage/ShmPutImage — для поиска обрезки кадра.
 3. 🔶 Иконки из .exe (`ExeIcon.kt`), ярлыки .lnk (`LnkFile.kt`: LinkInfo и IDList), установка: setup.exe запускается
    как обычная программа, новые ярлыки из «Пуска» Wine (`InstalledPrograms.kt`) сами добавляются на стол.
