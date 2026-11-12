@@ -28,13 +28,12 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
     result = AAudio_createStreamBuilder(&builder);
     if (result != AAUDIO_OK) return NULL;
 
-    // AleksOS: режим «низкая задержка» (мелкие порции — Wine не ждёт подолгу; в обычном режиме
-    // порция была 250 мс, и Wine считал это заминкой), но запас побольше — ~120 мс,
-    // чтобы короткие подвисания игры под Box64 не давали провалов
-    int32_t minFrames = sampleRate * 12 / 100;
+    // AleksOS: «низкая задержка» и НИКАКОЙ просьбы о большом запасе при открытии: если просить
+    // большой запас (capacity), Android включает медленный путь с порциями по 120–240 мс, запись
+    // звука стоит на месте, и Wine каждые несколько мс перезапускает звук (хрип). Запас задаём после.
+    int32_t minFrames = sampleRate / 10;
     if (bufferSize < minFrames) bufferSize = minFrames;
     AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
-    AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize * 4);
     AAudioStreamBuilder_setFormat(builder, toAAudioFormat(format));
     AAudioStreamBuilder_setChannelCount(builder, channelCount);
     AAudioStreamBuilder_setSampleRate(builder, sampleRate);
@@ -45,12 +44,11 @@ static AAudioStream *aaudioCreate(int32_t format, int8_t channelCount, int32_t s
         return NULL;
     }
 
-    // AleksOS: Android часто не даёт быстрый режим (44100 Гц ≠ 48000 у телефона) и берёт звук
-    // крупными порциями; запас в одну порцию = провал при любой заминке. Берём весь возможный запас.
+    // запас ~100 мс (не больше, чем позволит поток), но не меньше двух порций
     {
         int32_t burst = AAudioStream_getFramesPerBurst(stream);
         int32_t want = bufferSize;
-        if (burst > 0 && want < burst * 3) want = burst * 3;
+        if (burst > 0 && want < burst * 2) want = burst * 2;
         AAudioStream_setBufferSizeInFrames(stream, want);
     }
 
@@ -155,4 +153,10 @@ Java_com_winlator_alsaserver_ALSAClient_getBufferInfo(JNIEnv *env, jobject obj, 
              AAudioStream_getBufferCapacityInFrames(s), AAudioStream_getFramesPerBurst(s),
              AAudioStream_getPerformanceMode(s));
     return (*env)->NewStringUTF(env, text);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_winlator_alsaserver_ALSAClient_getState(JNIEnv *env, jobject obj, jlong streamPtr) {
+    AAudioStream *aaudioStream = (AAudioStream*)streamPtr;
+    return aaudioStream ? AAudioStream_getState(aaudioStream) : -1;
 }

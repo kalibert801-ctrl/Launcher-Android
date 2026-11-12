@@ -129,9 +129,12 @@ public class ALSAClient {
             statFrames += Math.max(framesWritten, 0); statWriteMs += ms; statMaxWriteMs = Math.max(statMaxWriteMs, ms);
             long now = System.currentTimeMillis();
             if (now - statTime >= 5000) {
+                // поток «умер» (13 = отключён: сменилось устройство звука) — открываем заново
+                int state = getState(streamPtr);
+                if (state == 13 || state < 0) recreateStream(-state);
                 int pct = (int)(statFrames * 100L * 1000 / Math.max(1, (now - statTime)) / Math.max(1, sampleRate));
                 com.winlator.xserver.XDebug.audio("за " + (now - statTime) / 1000 + " с пришло " + pct + "% нужного звука, провалов " +
-                    getXRuns(streamPtr) + ", перезапусков Wine " + reprepares + ", запись ждала " + statWriteMs + " мс (макс " + statMaxWriteMs + ")");
+                    getXRuns(streamPtr) + ", перезапусков Wine " + reprepares + ", состояние " + getState(streamPtr) + ", запись ждала " + statWriteMs + " мс (макс " + statMaxWriteMs + ")");
                 statTime = now; statFrames = 0; statWriteMs = 0; statMaxWriteMs = 0; reprepares = 0;
             }
             data.rewind();
@@ -198,6 +201,8 @@ public class ALSAClient {
     private int reprepares;
 
     private native int getXRuns(long streamPtr);
+
+    private native int getState(long streamPtr);
 
     private native String getBufferInfo(long streamPtr);
 
