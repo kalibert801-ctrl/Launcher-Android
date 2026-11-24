@@ -79,6 +79,7 @@ object WineRuntime {
         runCatching { applyBox64Version(context, rootfs) }.onFailure { writeLog("Box64: $it") }
         runCatching { applyGraphicsDriver(context, rootfs) }.onFailure { writeLog("Графика: $it") }
         runCatching { setAudioDriver(context, rootfs) }.onFailure { writeLog("Звук: $it") }
+        runCatching { WineStubPatches.apply(rootfs) }.onFailure { writeLog("Заплатки Wine: $it") }
 
         File(rootfs, "tmp").mkdirs()
         File(rootfs, "tmp").listFiles()?.forEach { FileOps.deleteRecursive(it) }
