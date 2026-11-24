@@ -95,6 +95,10 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
    ✅ С ICU Layerforge (PySide6) дошёл до окна, дальше падал на «unimplemented function
    mscms.WcsCreateIccProfile» → `WineStubPatches.kt`: при подготовке ядра в DLL Wine (opt/wine/lib/wine/*-windows,
    system32, syswow64) «ловушки» winebuild заменяются на «вернуть 0» (только если там ловушка), как в Wine MR 11138.
+   Layerforge висел на «Загружаю 3D-движок»: OpenBLAS (numpy) создаёт поток на ядро → ядро задаёт
+   OPENBLAS_NUM_THREADS=1 / OMP_NUM_THREADS=1. Интернет в Wine: в образе /etc/resolv.conf — битая ссылка на
+   systemd → `writeDnsConfig` пишет DNS телефона + 8.8.8.8/1.1.1.1. BIOS «Версия Windows» (XP…11) → user.reg
+   [Software\\Wine] "Version". BIOS «Журнал Wine: Подробный» = WINEDEBUG +loaddll,+seh.
    Логотип владельца (знак «A» с дорожками): `res/drawable-nodpi/aleksos_mark.png` (рисует `LogoDrawable`,
    грузит `AleksApp`), иконка — адаптивная `ic_launcher.xml` + `ic_launcher_fg.png`. Загрузка: проверка → логотип целиком (`aleksos_logo_full.png`, 2 с) → фото-заставка → стол.
    Экранное игровое управление: `GameControls.kt` (кнопка 🎮 в заголовке окна).
