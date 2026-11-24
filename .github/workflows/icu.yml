@@ -51,7 +51,12 @@ jobs:
               || { tail -40 "b-$dir.log"; echo "::error::ICU $dir: $(grep -E ' error: |Error [0-9]|undefined reference|multiple definition|cannot find|[*][*][*]' b-$dir.log | head -8 | tr -s '[:space:]' ' ' | cut -c1-2500)"; exit 1; }
             mkdir -p "pkg/$dir"
             find "b-$dir" -name "*.dll" | tee /dev/stderr
-            for f in $(find "b-$dir" -name "icu*.dll"); do cp "$f" "pkg/$dir/"; done
+            # одноимённых DLL две (настоящие данные и пустая заглушка stubdata) — берём бо́льшую
+            for f in $(find "b-$dir" -name "icu*.dll"); do
+              n="pkg/$dir/$(basename "$f")"
+              if [ ! -f "$n" ] || [ "$(stat -c %s "$f")" -gt "$(stat -c %s "$n")" ]; then cp "$f" "$n"; fi
+            done
+            [ "$(stat -c %s pkg/$dir/icudt*.dll)" -gt 10000000 ] || { echo "::error::ICU $dir: данные icudt пустые"; exit 1; }
             # библиотека потоков MinGW — рядом с ICU (в Wine её нет)
             cp "$(find /usr/lib/gcc/$host /usr/$host -name libwinpthread-1.dll 2>/dev/null | head -1)" "pkg/$dir/"
           }
