@@ -89,6 +89,11 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
    быстрого режима (44100 ≠ 48000) брал порции до 240 мс, а запрос большой capacity делал их ещё больше.
    Поэтому BIOS → Графика → «Звук»: PulseAudio (по умолчанию, `PulseAudioComponent`, libpulseaudio.so и др. в
    jniLibs, модули в assets/pulseaudio, реестр Audio=pulse, PULSE_LATENCY_MSEC=60) или ALSA. Журнал пишет строки «Звук:».
+   Программы на Qt 6 / PySide6 требуют системную ICU Windows (icuuc.dll/icuin.dll, функции без номера версии) —
+   в Wine 9.2 её нет. `.github/workflows/icu.yml`: ICU 76.1 MinGW x86_64 с U_DISABLE_RENAMING → Release icu-76.1
+   (только system32: Qt 6 под Windows только 64-бит), компонент «ICU» в «Компонентах Windows».
+   Логотип владельца (знак «A» с дорожками): `res/drawable-nodpi/aleksos_mark.png` (рисует `LogoDrawable`,
+   грузит `AleksApp`), иконка — адаптивная `ic_launcher.xml` + `ic_launcher_fg.png`. Заставка-фото не менялась.
    Экранное игровое управление: `GameControls.kt` (кнопка 🎮 в заголовке окна).
    Журнал ядра пишет строки X-сервера (`XDebug`): размеры окон и PutImage/ShmPutImage — для поиска обрезки кадра.
 3. 🔶 Иконки из .exe (`ExeIcon.kt`), ярлыки .lnk (`LnkFile.kt`: LinkInfo и IDList), установка: setup.exe запускается

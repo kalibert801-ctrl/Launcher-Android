@@ -80,10 +80,30 @@ class LogoDrawable : Drawable() {
     }
     private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
 
+    companion object {
+        /** Знак-логотип AleksOS (новый логотип владельца), загружается в [AleksApp]. */
+        @JvmStatic var mark: android.graphics.Bitmap? = null
+    }
+
+    private val tile = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF4F6F9.toInt() }
+    private val markPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+
     override fun draw(canvas: Canvas) {
         val b = bounds
         val w = b.width().toFloat()
         val h = b.height().toFloat()
+        val m = mark
+        if (m != null) {
+            // светлая плитка со знаком «A»
+            val r = w * 0.26f
+            canvas.drawRoundRect(RectF(b), r, r, tile)
+            val box = minOf(w, h) * 0.78f
+            val k = minOf(box / m.width, box / m.height)
+            val mw = m.width * k; val mh = m.height * k
+            val left = b.exactCenterX() - mw / 2; val top = b.exactCenterY() - mh / 2
+            canvas.drawBitmap(m, null, RectF(left, top, left + mw, top + mh), markPaint)
+            return
+        }
         bg.shader = LinearGradient(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(),
             Ui.ACCENT, Ui.ACCENT_2, Shader.TileMode.CLAMP)
         val r = w * 0.3f
@@ -95,6 +115,8 @@ class LogoDrawable : Drawable() {
     }
 
     override fun setAlpha(alpha: Int) {
+        tile.alpha = alpha
+        markPaint.alpha = alpha
         bg.alpha = alpha
         letter.alpha = alpha
     }

@@ -53,6 +53,7 @@ object WindowsComponents {
             "winemono" -> File(windows, "mono/mono-2.0").isDirectory
             "box64new" -> WineRuntime.box64NewInstalled(context)
             "mesanew" -> WineRuntime.mesaNewInstalled(context)
+            "icu" -> File(windows, "system32/icuuc.dll").isFile
             "vcrun2022_x86" -> isNative(File(windows, "syswow64/msvcp140.dll"))
             "vcrun2022_x64" -> isNative(File(windows, "system32/msvcp140.dll"))
             else -> prefs(context).getBoolean(id, false)
@@ -166,7 +167,17 @@ object WindowsComponents {
         }
     }
 
-    private fun loadList(): List<Component> = loadBox64() + loadMesa() + loadDlls()
+    private fun loadList(): List<Component> = loadBox64() + loadMesa() + loadIcu() + loadDlls()
+
+    const val ICU_VERSION = "76.1"
+
+    /** ICU «как в Windows» (icuuc.dll/icuin.dll) — нужен программам на Qt 6 / PySide6 (.github/workflows/icu.yml). */
+    private fun loadIcu(): List<Component> = runCatching {
+        val v = ICU_VERSION
+        val o = JSONObject(httpText("$REPO/icu-$v/icu-$v.json"))
+        listOf(Component("icu", "ICU $v (для программ на Qt 6)", "Без него программы на Qt 6 / PySide6 пишут «icuuc.dll not found» или «DLL load failed … QtWidgets»",
+            o.getString("url"), o.getLong("size"), o.getString("sha256"), emptyList()))
+    }.getOrDefault(emptyList())
 
     /** Новая графика: Turnip + Zink из Mesa (собирает .github/workflows/mesa.yml, Release mesa-<версия>). */
     private fun loadMesa(): List<Component> = runCatching {
