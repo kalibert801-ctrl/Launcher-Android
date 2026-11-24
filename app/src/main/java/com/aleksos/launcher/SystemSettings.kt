@@ -63,8 +63,10 @@ class SystemSettings(context: Context) {
             listOf("Быстрее", "Сбалансированно", "Стабильнее"), 1)
         val BOX64_VERSION = Option("box64ver", "Версия Box64", "Новая переводит AVX2 — нужна новым играм (ставится в «Компонентах Windows»)",
             listOf("0.2.9 (стабильная)", "0.4.4 (новые игры, AVX2)"), 0)
-        val WINDOWS_VERSION = Option("winver", "Версия Windows", "Какой Windows притворяется Wine",
-            listOf("Windows XP", "Windows 7", "Windows 10"), 2)
+        val WINDOWS_VERSION = Option("winver2", "Версия Windows", "Какой Windows притворяется Wine (старым играм — XP/7, новым программам — 10/11)",
+            listOf("Windows XP", "Windows 7", "Windows 8.1", "Windows 10", "Windows 11"), 3)
+        /** Значение «Version» для реестра Wine (HKCU\Software\Wine) по номеру варианта. */
+        val WINE_VERSIONS = listOf("winxp64", "win7", "win81", "win10", "win11")
 
         // Графика
         val GPU_DRIVER = Option("gpu2", "Графический драйвер", "Новый — Turnip и Zink из Mesa 25 (ставится в «Компонентах Windows»)",

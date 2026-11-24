@@ -79,6 +79,7 @@ object WineRuntime {
         runCatching { applyBox64Version(context, rootfs) }.onFailure { writeLog("Box64: $it") }
         runCatching { applyGraphicsDriver(context, rootfs) }.onFailure { writeLog("Графика: $it") }
         runCatching { setAudioDriver(context, rootfs) }.onFailure { writeLog("Звук: $it") }
+        runCatching { applyWindowsVersion(context, rootfs) }.onFailure { writeLog("Версия Windows: $it") }
         runCatching { WineStubPatches.apply(rootfs) }.onFailure { writeLog("Заплатки Wine: $it") }
 
         File(rootfs, "tmp").mkdirs()
@@ -144,6 +145,14 @@ object WineRuntime {
      */
     /** PulseAudio выбран в BIOS («Звук»)? */
     fun usePulseAudio(context: Context) = SystemSettings(context).get(SystemSettings.AUDIO) == 0
+
+    /** BIOS → Kernel → «Версия Windows»: какой Windows притворяется Wine (как в winecfg). */
+    private fun applyWindowsVersion(context: Context, rootfs: File) {
+        val i = SystemSettings(context).get(SystemSettings.WINDOWS_VERSION)
+        val ver = SystemSettings.WINE_VERSIONS.getOrElse(i) { "win10" }
+        setRegistryValues(File(rootfs, "home/xuser/.wine/user.reg"), "Software\\\\Wine", mapOf("\"Version\"" to "\"$ver\""))
+        writeLog("Версия Windows: ${SystemSettings(context).valueOf(SystemSettings.WINDOWS_VERSION)}")
+    }
 
     private fun setAudioDriver(context: Context, rootfs: File) {
         val driver = if (usePulseAudio(context)) "pulse" else "alsa"
