@@ -88,7 +88,9 @@ class SystemSettings(context: Context) {
         val SPLASH = Option("splash", "Заставка AleksOS", "Картинка загрузки после проверки",
             listOf("Включена", "Выключена"), 0)
 
-        val ENGINE_OPTIONS = listOf(MEMORY, CPU_CORES, BOX64, BOX64_VERSION, WINDOWS_VERSION)
+        val LOG_DETAIL = Option("log_detail", "Журнал Wine", "Подробный — пишет каждую загруженную DLL (если программа зависает)",
+            listOf("Обычный", "Подробный"), 0)
+        val ENGINE_OPTIONS = listOf(MEMORY, CPU_CORES, BOX64, BOX64_VERSION, WINDOWS_VERSION, LOG_DETAIL)
         val GRAPHICS_OPTIONS = listOf(GPU_DRIVER, DIRECTX, RESOLUTION, FPS_LIMIT, PRESENT, AUDIO)
         val BOOT_OPTIONS = listOf(BOOT_MODE, BIOS_WAIT, SPLASH)
         val ALL = ENGINE_OPTIONS + GRAPHICS_OPTIONS + BOOT_OPTIONS

@@ -320,7 +320,8 @@ object WineRuntime {
     fun envVars(context: Context): EnvVars {
         val env = EnvVars()
         env.put("WINEPREFIX", WINEPREFIX)
-        env.put("WINEDEBUG", "fixme-all")
+        // «Подробный журнал» (BIOS → Kernel): каждая загруженная DLL и исключения — видно, где программа застряла
+        env.put("WINEDEBUG", if (SystemSettings(context).get(SystemSettings.LOG_DETAIL) == 1) "fixme-all,+loaddll,+seh" else "fixme-all")
         // Русский язык и кодировка Windows-1251 (если русская локаль установлена)
         val locale = if (hasRussianLocale(context)) RU_LOCALE else "en_US.utf8"
         env.put("LC_ALL", locale)
