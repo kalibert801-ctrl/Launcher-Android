@@ -18,6 +18,8 @@
 
     <!-- Для проверки и скачивания обновлений с GitHub -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- узнать DNS-серверы телефона для интернета внутри Wine -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Чтобы лаунчер мог установить скачанное обновление (Android спросит разрешение) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Проводник «Этот телефон» и папки на рабочем столе -->

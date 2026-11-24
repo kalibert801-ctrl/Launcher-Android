@@ -75,6 +75,7 @@ object WineRuntime {
         }
 
         installRussianLocale(context, rootfs)
+        runCatching { writeDnsConfig(context, rootfs) }.onFailure { writeLog("Интернет (DNS): $it") }
         runCatching { applyDirectX(context, rootfs) }.onFailure { writeLog("DirectX: $it") }
         runCatching { applyBox64Version(context, rootfs) }.onFailure { writeLog("Box64: $it") }
         runCatching { applyGraphicsDriver(context, rootfs) }.onFailure { writeLog("Графика: $it") }
@@ -143,6 +144,26 @@ object WineRuntime {
      * Звук: Wine выводит звук через ALSA, а ALSA-модуль из Winlator передаёт его в AleksOS
      * (ALSAServerComponent → AAudio Android). В реестре Wine: HKCU\Software\Wine\Drivers, Audio = alsa.
      */
+    /**
+     * Интернет внутри Wine: в образе ядра /etc/resolv.conf — ссылка на файл systemd, которого на телефоне нет,
+     * поэтому программы не находили адреса сайтов. Пишем настоящий файл: DNS телефона + общедоступные запасные.
+     */
+    private fun writeDnsConfig(context: Context, rootfs: File) {
+        val phone = runCatching {
+            val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+            cm.getLinkProperties(cm.activeNetwork)?.dnsServers?.mapNotNull { it.hostAddress?.substringBefore('%') }
+        }.getOrNull().orEmpty()
+        val servers = (phone + listOf("8.8.8.8", "1.1.1.1")).distinct().take(3)   // glibc читает до 3 серверов
+        val text = servers.joinToString("") { "nameserver $it\n" } + "options timeout:3 attempts:2\n"
+        val conf = File(rootfs, "etc/resolv.conf")
+        if (conf.isFile && !java.nio.file.Files.isSymbolicLink(conf.toPath()) && conf.readText() == text) return
+        runCatching { java.nio.file.Files.deleteIfExists(conf.toPath()) }
+        conf.writeText(text)
+        val hosts = File(rootfs, "etc/hosts")
+        if (hosts.isFile && !hosts.readText().contains("::1")) hosts.appendText("::1\tlocalhost\n")
+        writeLog("Интернет: DNS ${servers.joinToString(", ")}")
+    }
+
     /** PulseAudio выбран в BIOS («Звук»)? */
     fun usePulseAudio(context: Context) = SystemSettings(context).get(SystemSettings.AUDIO) == 0
 
