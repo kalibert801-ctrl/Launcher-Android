@@ -63,17 +63,15 @@ object WineStubPatches {
         val dirs = listOf(
             "opt/wine/lib/wine/x86_64-windows", "opt/wine/lib/wine/i386-windows",
             "home/xuser/.wine/drive_c/windows/system32", "home/xuser/.wine/drive_c/windows/syswow64")
+        val done = sortedMapOf<String, Int>()
         for (p in PATCHES) for (d in dirs) {
             val f = File(rootfs, "$d/${p.dll}")
             if (!f.isFile) continue
             runCatching {
-                when (patchFile(f, p)) {
-                    true -> WineRuntime.writeLog("Заплатка Wine: ${p.dll}.${p.function} → пустышка ($d)")
-                    false -> {}
-                    null -> {}
-                }
+                if (patchFile(f, p) == true) done[p.dll] = (done[p.dll] ?: 0) + 1
             }.onFailure { WineRuntime.writeLog("Заплатка Wine ${p.dll}: $it") }
         }
+        for ((dll, n) in done) WineRuntime.writeLog("Исправления Wine: $dll — заменено ловушек: $n")
     }
 
     /** true — исправлено сейчас, false — уже было исправлено, null — функция не найдена. */
