@@ -96,7 +96,7 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
    mscms.WcsCreateIccProfile» → `WineStubPatches.kt`: при подготовке ядра в DLL Wine (opt/wine/lib/wine/*-windows,
    system32, syswow64) «ловушки» winebuild заменяются на «вернуть 0» (только если там ловушка), как в Wine MR 11138.
    Логотип владельца (знак «A» с дорожками): `res/drawable-nodpi/aleksos_mark.png` (рисует `LogoDrawable`,
-   грузит `AleksApp`), иконка — адаптивная `ic_launcher.xml` + `ic_launcher_fg.png`. Заставка-фото не менялась.
+   грузит `AleksApp`), иконка — адаптивная `ic_launcher.xml` + `ic_launcher_fg.png`. Загрузка: проверка → логотип целиком (`aleksos_logo_full.png`, 2 с) → фото-заставка → стол.
    Экранное игровое управление: `GameControls.kt` (кнопка 🎮 в заголовке окна).
    Журнал ядра пишет строки X-сервера (`XDebug`): размеры окон и PutImage/ShmPutImage — для поиска обрезки кадра.
 3. 🔶 Иконки из .exe (`ExeIcon.kt`), ярлыки .lnk (`LnkFile.kt`: LinkInfo и IDList), установка: setup.exe запускается

@@ -199,6 +199,29 @@ class BootScreen(private val activity: Activity, private val host: FrameLayout, 
             finish()
             return
         }
+        showLogo()
+    }
+
+    /** Логотип AleksOS целиком (знак + надпись) на светлом фоне, затем фото-заставка. */
+    private fun showLogo() {
+        val logo = FrameLayout(activity).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFFFFFFF.toInt(), 0xFFE8EDF3.toInt()))
+            alpha = 0f
+        }
+        val image = ImageView(activity).apply {
+            setImageResource(R.drawable.aleksos_logo_full)
+            adjustViewBounds = true
+            scaleX = 0.92f; scaleY = 0.92f
+        }
+        val w = (minOf(activity.resources.displayMetrics.widthPixels, activity.resources.displayMetrics.heightPixels) * 0.78f).toInt()
+        logo.addView(image, FrameLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        overlay.addView(logo, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        logo.animate().alpha(1f).setDuration(450).start()
+        image.animate().scaleX(1f).scaleY(1f).setDuration(1400).start()
+        handler.postDelayed({ if (!finished) showPhoto() }, 2000)
+    }
+
+    private fun showPhoto() {
         val splash = FrameLayout(activity).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
         splash.addView(ImageView(activity).apply {
             setImageResource(R.drawable.boot_splash)
