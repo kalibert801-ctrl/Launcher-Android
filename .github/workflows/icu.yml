@@ -43,15 +43,17 @@ jobs:
             (cd "b-$dir" && \
               CC=$host-gcc-posix CXX=$host-g++-posix \
               CPPFLAGS="-DU_DISABLE_RENAMING=1" CFLAGS="-O2" CXXFLAGS="-O2" \
-              LDFLAGS="-static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive,-Bdynamic" \
+              LDFLAGS="-static-libgcc -static-libstdc++" \
               ../icu/source/configure --host=$host --with-cross-build="$PWD/../host" \
                 --disable-tests --disable-samples --disable-extras --disable-tools --disable-icuio --disable-layoutex \
                 --with-data-packaging=library --enable-shared --disable-static > ../b-$dir.log 2>&1 && \
               make -j"$(nproc)" >> ../b-$dir.log 2>&1) \
-              || { tail -40 "b-$dir.log"; echo "::error::ICU $dir: $(grep -E ' error: |Error [0-9]|undefined reference|[*][*][*]' b-$dir.log | head -8 | tr -s '[:space:]' ' ' | cut -c1-2500)"; exit 1; }
+              || { tail -40 "b-$dir.log"; echo "::error::ICU $dir: $(grep -E ' error: |Error [0-9]|undefined reference|multiple definition|cannot find|[*][*][*]' b-$dir.log | head -8 | tr -s '[:space:]' ' ' | cut -c1-2500)"; exit 1; }
             mkdir -p "pkg/$dir"
             find "b-$dir" -name "*.dll" | tee /dev/stderr
             for f in $(find "b-$dir" -name "icu*.dll"); do cp "$f" "pkg/$dir/"; done
+            # библиотека потоков MinGW — рядом с ICU (в Wine её нет)
+            cp "$(find /usr/lib/gcc/$host /usr/$host -name libwinpthread-1.dll 2>/dev/null | head -1)" "pkg/$dir/"
           }
           build x86_64-w64-mingw32 system32
           build i686-w64-mingw32 syswow64
