@@ -26,7 +26,7 @@ jobs:
       - name: Инструменты
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq mingw-w64 g++-mingw-w64-x86-64-posix g++-mingw-w64-i686-posix gcc-mingw-w64-x86-64-posix gcc-mingw-w64-i686-posix
+          sudo apt-get install -y -qq mingw-w64 g++-mingw-w64-x86-64-posix gcc-mingw-w64-x86-64-posix
 
       - name: Собрать
         run: |
@@ -61,9 +61,9 @@ jobs:
             cp "$(find /usr/lib/gcc/$host /usr/$host -name libwinpthread-1.dll 2>/dev/null | head -1)" "pkg/$dir/"
           }
           build x86_64-w64-mingw32 system32
-          build i686-w64-mingw32 syswow64
+          # 32-битная ICU не нужна: Qt 6 под Windows только 64-битная
           M="${V%%.*}"
-          for d in system32 syswow64; do
+          for d in system32; do
             # Qt ищет DLL «как в Windows» — без номера версии
             cp "pkg/$d/icuuc$M.dll" "pkg/$d/icuuc.dll"
             cp "pkg/$d/icuin$M.dll" "pkg/$d/icuin.dll"
@@ -72,7 +72,7 @@ jobs:
           # проверка: функции без номера версии и без лишних зависимостей
           x86_64-w64-mingw32-objdump -p pkg/system32/icuuc.dll | grep -E "^\s+\[.*\] u_strlen$|DLL Name" | head -20
           x86_64-w64-mingw32-objdump -p pkg/system32/icuuc.dll | grep -qE "\] u_strlen$" || { echo "::error::в icuuc.dll нет функции u_strlen без номера версии"; exit 1; }
-          tar --format=gnu --owner=0 --group=0 -C pkg -czf "icu-$V.tar.gz" system32 syswow64
+          tar --format=gnu --owner=0 --group=0 -C pkg -czf "icu-$V.tar.gz" system32
           SIZE=$(stat -c %s "icu-$V.tar.gz"); SHA=$(sha256sum "icu-$V.tar.gz" | cut -d' ' -f1)
           echo "{\"version\":\"$V\",\"url\":\"https://github.com/${{ github.repository }}/releases/download/icu-$V/icu-$V.tar.gz\",\"size\":$SIZE,\"sha256\":\"$SHA\"}" > "icu-$V.json"
           cat "icu-$V.json"
