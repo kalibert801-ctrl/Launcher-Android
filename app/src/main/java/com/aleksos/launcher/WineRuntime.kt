@@ -320,6 +320,10 @@ object WineRuntime {
     fun envVars(context: Context): EnvVars {
         val env = EnvVars()
         env.put("WINEPREFIX", WINEPREFIX)
+        // numpy/OpenBLAS при загрузке создаёт поток на каждое ядро — под Box64 это зависает без ошибок
+        // (Layerforge стоял на «Загружаю 3D-движок»). Один поток — надёжно, для телефона достаточно.
+        env.put("OPENBLAS_NUM_THREADS", "1")
+        env.put("OMP_NUM_THREADS", "1")
         // «Подробный журнал» (BIOS → Kernel): каждая загруженная DLL и исключения — видно, где программа застряла
         env.put("WINEDEBUG", if (SystemSettings(context).get(SystemSettings.LOG_DETAIL) == 1) "fixme-all,+loaddll,+seh" else "fixme-all")
         // Русский язык и кодировка Windows-1251 (если русская локаль установлена)
