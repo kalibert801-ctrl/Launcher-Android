@@ -92,6 +92,9 @@ Adreno 7xx хорошо поддерживается драйвером Turnip (
    Программы на Qt 6 / PySide6 требуют системную ICU Windows (icuuc.dll/icuin.dll, функции без номера версии) —
    в Wine 9.2 её нет. `.github/workflows/icu.yml`: ICU 76.1 MinGW x86_64 с U_DISABLE_RENAMING → Release icu-76.1
    (только system32: Qt 6 под Windows только 64-бит), компонент «ICU» в «Компонентах Windows».
+   ✅ С ICU Layerforge (PySide6) дошёл до окна, дальше падал на «unimplemented function
+   mscms.WcsCreateIccProfile» → `WineStubPatches.kt`: при подготовке ядра в DLL Wine (opt/wine/lib/wine/*-windows,
+   system32, syswow64) «ловушки» winebuild заменяются на «вернуть 0» (только если там ловушка), как в Wine MR 11138.
    Логотип владельца (знак «A» с дорожками): `res/drawable-nodpi/aleksos_mark.png` (рисует `LogoDrawable`,
    грузит `AleksApp`), иконка — адаптивная `ic_launcher.xml` + `ic_launcher_fg.png`. Заставка-фото не менялась.
    Экранное игровое управление: `GameControls.kt` (кнопка 🎮 в заголовке окна).
