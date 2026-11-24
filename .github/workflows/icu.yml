@@ -48,7 +48,7 @@ jobs:
                 --disable-tests --disable-samples --disable-extras --disable-tools --disable-icuio --disable-layoutex \
                 --with-data-packaging=library --enable-shared --disable-static > ../b-$dir.log 2>&1 && \
               make -j"$(nproc)" >> ../b-$dir.log 2>&1) \
-              || { tail -40 "b-$dir.log"; echo "::error::ICU $dir: $(grep -iE 'error|undefined reference' b-$dir.log | head -8 | tr -s '[:space:]' ' ' | cut -c1-2500)"; exit 1; }
+              || { tail -40 "b-$dir.log"; echo "::error::ICU $dir: $(grep -E ' error: |Error [0-9]|undefined reference|[*][*][*]' b-$dir.log | head -8 | tr -s '[:space:]' ' ' | cut -c1-2500)"; exit 1; }
             mkdir -p "pkg/$dir"
             find "b-$dir" -name "*.dll" | tee /dev/stderr
             for f in $(find "b-$dir" -name "icu*.dll"); do cp "$f" "pkg/$dir/"; done
