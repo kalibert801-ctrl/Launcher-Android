@@ -172,7 +172,30 @@ object WineRuntime {
         val i = SystemSettings(context).get(SystemSettings.WINDOWS_VERSION)
         val ver = SystemSettings.WINE_VERSIONS.getOrElse(i) { "win10" }
         setRegistryValues(File(rootfs, "home/xuser/.wine/user.reg"), "Software\\\\Wine", mapOf("\"Version\"" to "\"$ver\""))
-        writeLog("Версия Windows: ${SystemSettings(context).valueOf(SystemSettings.WINDOWS_VERSION)}")
+        // как winecfg: ещё и сведения о системе в HKLM (их читают AIDA64, установщики и др.; в образе Winlator там Windows 7)
+        // версия ядра, сборка, Service Pack, название, номер «10» для Windows 10/11
+        data class Info(val nt: String, val build: String, val csd: String, val csdNum: Int, val name: String, val major: Int, val minor: Int)
+        val info = when (ver) {
+            "winxp64" -> Info("5.2", "3790", "Service Pack 2", 0x200, "Microsoft Windows XP", 0, 0)
+            "win7" -> Info("6.1", "7601", "Service Pack 1", 0x100, "Windows 7 Professional", 0, 0)
+            "win81" -> Info("6.3", "9600", "", 0, "Windows 8.1 Pro", 0, 0)
+            "win11" -> Info("6.3", "22631", "", 0, "Windows 11 Pro", 10, 0)
+            else -> Info("6.3", "19045", "", 0, "Windows 10 Pro", 10, 0)
+        }
+        val system = File(rootfs, "home/xuser/.wine/system.reg")
+        val values = linkedMapOf<String, String?>(
+            "\"CurrentVersion\"" to "\"${info.nt}\"",
+            "\"CurrentBuild\"" to "\"${info.build}\"",
+            "\"CurrentBuildNumber\"" to "\"${info.build}\"",
+            "\"CSDVersion\"" to "\"${info.csd}\"",
+            "\"ProductName\"" to "\"${info.name}\"",
+        )
+        // у Windows до 10 этих значений нет — удаляем, чтобы программы не видели «10»
+        values["\"CurrentMajorVersionNumber\""] = if (info.major > 0) "dword:%08x".format(info.major) else null
+        values["\"CurrentMinorVersionNumber\""] = if (info.major > 0) "dword:%08x".format(info.minor) else null
+        setRegistryValues(system, "Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion", values)
+        setRegistryValues(system, "System\\\\CurrentControlSet\\\\Control\\\\Windows", mapOf("\"CSDVersion\"" to "dword:%08x".format(info.csdNum)))
+        writeLog("Версия Windows: ${SystemSettings(context).valueOf(SystemSettings.WINDOWS_VERSION)} (${info.nt}.${info.build})")
     }
 
     private fun setAudioDriver(context: Context, rootfs: File) {
@@ -188,11 +211,13 @@ object WineRuntime {
     fun setRegistryValues(context: Context, key: String, values: Map<String, String>) =
         setRegistryValues(File(EngineManager.rootfsDir(context), "home/xuser/.wine/user.reg"), key, values)
 
-    private fun setRegistryValues(reg: File, key: String, values: Map<String, String>) {
+    /** values: имя → значение в формате реестра; null — удалить значение. */
+    private fun setRegistryValues(reg: File, key: String, values: Map<String, String?>) {
         if (!reg.isFile || values.isEmpty()) return
         val text = reg.readText()
         val header = "[$key]"
-        val lines = values.map { (k, v) -> "$k=$v" }
+        val lines = values.mapNotNull { (k, v) -> v?.let { "$k=$it" } }
+        val removed = values.filterValues { it == null }.keys
         val start = text.indexOf(header)
         val updated = if (start < 0) {
             text.trimEnd() + "\n\n$header\n" + lines.joinToString("\n") + "\n"
@@ -200,7 +225,7 @@ object WineRuntime {
             val lineEnd = text.indexOf('\n', start).let { if (it < 0) text.length else it }
             val next = text.indexOf("\n[", lineEnd).let { if (it < 0) text.length else it }
             val section = text.substring(lineEnd, next)
-            if (lines.all { section.contains(it) }) return
+            if (lines.all { section.contains(it) } && removed.none { k -> section.lines().any { it.startsWith("$k=", ignoreCase = true) } }) return
             val kept = section.lines().filterNot { line -> values.keys.any { line.startsWith("$it=", ignoreCase = true) } }
             text.substring(0, lineEnd) + "\n" + lines.joinToString("\n") + kept.joinToString("\n") + text.substring(next)
         }
